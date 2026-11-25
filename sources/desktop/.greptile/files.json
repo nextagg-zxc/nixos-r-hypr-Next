@@ -1,0 +1,211 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "Contributor contract: style, command naming, the runtime environment (NIXOS_PATH is always set in the session), platform names, helper commands and tests. CLAUDE.md only imports this file."
+    },
+    {
+      "path": "agents/skills/command-metadata.md",
+      "description": "Header metadata every bin/ command declares",
+      "scope": [
+        "bin/**"
+      ]
+    },
+    {
+      "path": "docs/cli-router.md",
+      "description": "How bin/nixos resolves routes and what nixos commands --check enforces",
+      "scope": [
+        "bin/**",
+        "test/cli"
+      ]
+    },
+    {
+      "path": "agents/skills/install-scripts.md",
+      "description": "Rules for install/ leaves and the apply/finalize/provision commands",
+      "scope": [
+        "install/**",
+        "bin/nixos-apply-*",
+        "bin/nixos-provision-*"
+      ]
+    },
+    {
+      "path": "agents/skills/migrations.md",
+      "description": "Migration model, format, ordering and when tests are kept",
+      "scope": [
+        "migrations/**",
+        "bin/nixos-migrate*",
+        "bin/nixos-upgrade-to-quattro"
+      ]
+    },
+    {
+      "path": "docs/update-process.md",
+      "description": "The nixos update pipeline, its sudo boundary, the pacman guard and channels",
+      "scope": [
+        "bin/nixos-update*",
+        "bin/nixos-migrate*",
+        "bin/nixos-channel-*",
+        "bin/nixos-refresh-pacman",
+        "bin/nixos-reinstall-pkgs",
+        "default/libalpm/**",
+        "default/pacman/**",
+        "install/helpers/pacman.sh"
+      ]
+    },
+    {
+      "path": "docs/lifecycle-dispatch.md",
+      "description": "Platform lifecycle operations, their callers and the trust rules for root entrypoints",
+      "scope": [
+        "bin/nixos-lifecycle-dispatch",
+        "bin/nixos-provision-*",
+        "bin/nixos-system-factory-reset",
+        "bin/nixos-update-boot",
+        "bin/nixos-drive-password",
+        "bin/nixos-install-browser",
+        "bin/nixos-install-gaming-steam",
+        "bin/nixos-remove-gaming-steam",
+        "install/provisioning/**",
+        "install/hardware/platform-setup.sh",
+        "install/user/platform-setup.sh"
+      ]
+    },
+    {
+      "path": "docs/passwordless-sudo.md",
+      "description": "Grant lifecycle and package ownership for passwordless sudo",
+      "scope": [
+        "bin/nixos-sudo-*",
+        "bin/nixos-security-functions",
+        "etc/sudoers.d/**"
+      ]
+    },
+    {
+      "path": "docs/file-layout.md",
+      "description": "Where each repo tree is packaged and installed, env bootstrap, first-run and image builds",
+      "scope": [
+        "config/**",
+        "default/**",
+        "etc/**",
+        "applications/**",
+        "install/**",
+        "bin/nixos-provision-*",
+        "bin/nixos-reinstall-*",
+        "bin/nixos-dev-*"
+      ]
+    },
+    {
+      "path": "agents/skills/shell-dev.md",
+      "description": "Quickshell plugin contract, IPC, event sources instead of polling, palette imports",
+      "scope": [
+        "shell/**",
+        "bin/nixos-shell*"
+      ]
+    },
+    {
+      "path": "docs/nixos-shell.md",
+      "description": "Plugin manifest, third-party facades, shell.json, theme tokens and bar modules",
+      "scope": [
+        "shell/**",
+        "config/nixos/shell.json",
+        "bin/nixos-plugin*",
+        "bin/nixos-bar*"
+      ]
+    },
+    {
+      "path": "docs/menu.md",
+      "description": "Menu schema, guards, providers and select/input modes",
+      "scope": [
+        "default/nixos/nixos-menu.jsonc",
+        "shell/plugins/menu/**",
+        "bin/nixos-menu*"
+      ]
+    },
+    {
+      "path": "docs/notifications.md",
+      "description": "Notification daemon, DND rules and the nixos-notification-send contract",
+      "scope": [
+        "shell/plugins/notifications/**",
+        "bin/nixos-notification-*",
+        "bin/nixos-reminder*"
+      ]
+    },
+    {
+      "path": "docs/theming.md",
+      "description": "Theme activation, what a cloned theme may not ship, colors.toml and shell.toml",
+      "scope": [
+        "themes/**",
+        "default/themed/**",
+        "bin/nixos-theme-*"
+      ]
+    },
+    {
+      "path": "docs/i18n.md",
+      "description": "Catalogs, plural and number rules, translation sync and the translator brief",
+      "scope": [
+        "default/i18n/**",
+        "manual/**",
+        "shell/**",
+        "bin/**",
+        "scripts/i18n-sync.py",
+        ".github/workflows/**"
+      ]
+    },
+    {
+      "path": "agents/skills/mise-tools.md",
+      "description": "How default mise tools are declared",
+      "scope": [
+        "etc/mise/**",
+        "install/user/mise.sh"
+      ]
+    },
+    {
+      "path": "docs/testing.md",
+      "description": "Suite map, base-test.sh contract, compositor gating and performance guards",
+      "scope": [
+        "test/**"
+      ]
+    },
+    {
+      "path": "agents/skills/acceptance-tests.md",
+      "description": "Graphical acceptance suite run in a disposable VM",
+      "scope": [
+        "test/acceptance",
+        "test/acceptance.d/**"
+      ]
+    },
+    {
+      "path": "agents/skills/icon-font.md",
+      "description": "Adding glyphs to the NixOS icon font",
+      "scope": [
+        "default/fonts/nixos/**"
+      ]
+    },
+    {
+      "path": "docs/audio-tuning.md",
+      "description": "Speaker tunings and what a tuning must report",
+      "scope": [
+        "default/audio/**",
+        "install/hardware/speaker-tuning.sh",
+        "install/user/first-run/audio-tuning.sh",
+        "bin/nixos-audio-*",
+        "shell/plugins/panels/audio/**"
+      ]
+    },
+    {
+      "path": "docs/input-methods.md",
+      "description": "Input method setup for CJK languages",
+      "scope": [
+        "default/input-methods/**",
+        "shell/Commons/InputMethodState.qml",
+        "install/provisioning/setup-form.sh",
+        "install/user/input-method.sh",
+        "default/hypr/**"
+      ]
+    },
+    {
+      "path": "docs/elsewhen.md",
+      "description": "The Elsewhen world clock plugin",
+      "scope": [
+        "shell/plugins/panels/elsewhen/**"
+      ]
+    }
+  ]
+}

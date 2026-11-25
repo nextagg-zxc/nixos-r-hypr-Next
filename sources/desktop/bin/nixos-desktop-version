@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# nixos:summary=Print the installed NixOS version
+
+nixos_path=${NIXOS_PATH:-/usr/share/nixos}
+nixos_path=${nixos_path%/}
+
+if [[ $nixos_path != "/usr/share/nixos" ]]; then
+  hash=$(git -C "$nixos_path" rev-parse --short HEAD 2>/dev/null || true)
+
+  if [[ -n $hash ]]; then
+    echo "dev ($hash)"
+  else
+    echo "dev"
+  fi
+
+  exit 0
+fi
+
+# The edge channel installs nixos-dev instead of nixos, so check both.
+for package in nixos-dev nixos; do
+  version=$(pacman -Q "$package" 2>/dev/null | awk '{ print $2 }')
+  [[ -n $version ]] && break
+done
+
+[[ -n $version ]] || exit 1
+
+echo "$version"

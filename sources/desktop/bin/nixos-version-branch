@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# nixos:summary=Print the active NixOS dev-link git branch
+# nixos:hidden=true
+
+nixos_path=${NIXOS_PATH:-/usr/share/nixos}
+nixos_path=${nixos_path%/}
+
+[[ $nixos_path != "/usr/share/nixos" ]] || exit 1
+
+branch=$(git -C "$nixos_path" branch --show-current 2>/dev/null || true)
+if [[ -z $branch ]]; then
+  hash=$(git -C "$nixos_path" rev-parse --short HEAD 2>/dev/null || true)
+  [[ -n $hash ]] || exit 1
+  branch="detached@$hash"
+fi
+
+echo "$branch"

@@ -1,0 +1,37 @@
+name: build
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build (tests, PyInstaller, installer)
+        run: powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1
+        env:
+          PYTHON: python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZapretHub-windows
+          path: |
+            dist/ZapretHub-Setup-*.exe
+            dist/ZapretHub-windows.zip
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests
+      - name: AppImage
+        run: packaging/appimage/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZapretHub-linux
+          path: dist/ZapretHub-*-x86_64.AppImage

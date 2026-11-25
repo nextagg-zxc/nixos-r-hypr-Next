@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nextagg.keyboard-layout",
+  "name": "My Keyboard layout",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Current xkb layout, click cycles",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "KeyboardLayout.qml"
+  },
+  "barWidget": {
+    "displayName": "My Keyboard layout",
+    "description": "Current xkb layout, click cycles",
+    "category": "Compositor",
+    "allowMultiple": false
+  },
+  "nixos": {
+    "clonedFrom": "nixos.keyboard-layout"
+  }
+}

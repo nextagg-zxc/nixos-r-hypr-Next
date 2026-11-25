@@ -1,0 +1,18 @@
+# Powerline prompt: white NixOS badge, teal home/path segment.
+add_newline = false
+command_timeout = 200
+format = "[  ](fg:#008787 bg:#eeeeee)[](fg:#eeeeee bg:#008787)$directory[](fg:#008787)$character"
+
+[directory]
+format = "[  $path]($style)[$read_only]($read_only_style)[ ]($style)"
+style = "bg:#008787 fg:#eeeeee"
+read_only = " 󰌾"
+read_only_style = "bg:#008787 fg:#ffcc00"
+home_symbol = "~"
+truncation_length = 3
+truncation_symbol = "…/"
+truncate_to_repo = false
+
+[character]
+success_symbol = " "
+error_symbol = " [✗](bold red) "

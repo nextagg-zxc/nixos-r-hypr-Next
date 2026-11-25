@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Выбранный плеер всегда в фоне (24.11; раньше — только Spotify, spotify-background).
+# Плеер — файл ~/.config/nixos/media-player: spotify (по умолчанию, и при мусоре) или soundcloud.
+# Если основной процесс плеера пропал (свой крестик, падение), через два промаха запускаем его
+# снова и прячем окно в special:<плеер> — меню Win+B продолжает работать. SUPER+W/Q и так только
+# прячут окно (hypr.spotify-background). Невыбранный плеер служба не трогает.
+# SoundCloud (soundcloud-app) узнаётся по PID-файлу $XDG_RUNTIME_DIR/soundcloud-app.pid: app_id
+# его окна Chromium задаёт сам (chrome-…-Default), поэтому окно ищем по PID.
+# При входе плеер запускает автозапуск, поэтому сначала ждём MEDIA_BG_DELAY (60 с).
+# В KDE (раздаваемая система) — запуск через autostart-run: окно сворачивается, а не уходит в special.
+# Для тестов: MEDIA_BG_DELAY, MEDIA_BG_INTERVAL, MEDIA_BG_COOLDOWN, MEDIA_BG_SPOTIFY_PATTERN.
+
+conf=${XDG_CONFIG_HOME:-$HOME/.config}/nixos/media-player
+pidfile=${XDG_RUNTIME_DIR:-/run/user/$UID}/soundcloud-app.pid
+spotify_pattern=${MEDIA_BG_SPOTIFY_PATTERN:-'\.spotify-wrapped'}
+interval=${MEDIA_BG_INTERVAL:-3}
+cooldown=${MEDIA_BG_COOLDOWN:-10}
+
+kind() {
+  local k
+  k=$(tr -d '[:space:]' 2>/dev/null <"$conf" | tr '[:upper:]' '[:lower:]')
+  if [ "$k" = soundcloud ]; then echo soundcloud; else echo spotify; fi
+}
+
+spotify_pid() {
+  local p
+  for p in $(pgrep -u "$UID" -f -- "$spotify_pattern"); do
+    tr '\0' '\n' 2>/dev/null <"/proc/$p/cmdline" | grep -q -- '^--type=' || { echo "$p"; return; }
+  done
+}
+
+# PID из файла, если это ещё живой Chromium SoundCloud (cmdline склеен через пробелы).
+soundcloud_pid() {
+  local p cmd
+  p=$(cat "$pidfile" 2>/dev/null) || return
+  [[ $p =~ ^[0-9]+$ ]] && kill -0 "$p" 2>/dev/null || return
+  cmd=$(tr '\0' ' ' 2>/dev/null <"/proc/$p/cmdline") || return
+  [[ " $cmd " == *" --class=soundcloud "* ]] && echo "$p"
+}
+
+player_pid() { if [ "$1" = soundcloud ]; then soundcloud_pid; else spotify_pid; fi; }
+
+# Ждём окно (до 60 с) и переносим в special:<плеер>. $1 — плеер.
+hide_new_window() {
+  local k=$1 addr pid _
+  for _ in $(seq 120); do
+    sleep 0.5
+    if [ "$k" = soundcloud ]; then
+      pid=$(soundcloud_pid)
+      [ -n "$pid" ] || continue
+      addr=$(hyprctl clients -j 2>/dev/null | jq -r --argjson pid "$pid" '[.[] | select(.pid == $pid)][0].address // empty')
+    else
+      addr=$(hyprctl clients -j 2>/dev/null | jq -r '[.[] | select(.class | test("^spotify$"; "i"))][0].address // empty')
+    fi
+    if [ -n "$addr" ]; then
+      hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:$k\", window = \"address:$addr\", follow = false })" >/dev/null
+      return
+    fi
+  done
+}
+
+sleep "${MEDIA_BG_DELAY:-60}"
+miss=0
+last=""
+while true; do
+  k=$(kind)
+  [ "$k" = "$last" ] || { miss=0; last=$k; }
+  if [ -n "$(player_pid "$k")" ]; then
+    miss=0
+  else
+    miss=$((miss + 1))
+  fi
+  if [ "$miss" -ge 2 ] && [[ ":${XDG_CURRENT_DESKTOP:-}:" == *:KDE:* ]]; then
+    # KDE: ни uwsm-app, ни hyprctl — запускаем через autostart-run, он сворачивает новое окно
+    echo "$k not running, starting it minimized (KDE)"
+    if [ "$k" = soundcloud ]; then
+      autostart-run 0 soundcloud -- soundcloud-app >/dev/null 2>&1 &
+    else
+      autostart-run 0 spotify -- spotify >/dev/null 2>&1 &
+    fi
+    miss=0
+    sleep "$cooldown"
+  elif [ "$miss" -ge 2 ]; then
+    echo "$k not running, starting it hidden"
+    if [ "$k" = soundcloud ]; then
+      uwsm-app -- soundcloud-app >/dev/null 2>&1 &
+    else
+      uwsm-app -- spotify >/dev/null 2>&1 &
+    fi
+    hide_new_window "$k"
+    miss=0
+    sleep "$cooldown"
+  fi
+  sleep "$interval"
+done

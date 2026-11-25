@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nixos.menu",
+  "name": "NixOS menu",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Quickshell-powered NixOS command menu",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "NixOS menu",
+    "description": "Launches the NixOS menu",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
+}

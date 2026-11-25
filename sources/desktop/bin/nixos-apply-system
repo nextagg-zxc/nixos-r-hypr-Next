@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# nixos:summary=Apply NixOS system setup in the installed target
+# nixos:group=apply
+# nixos:requires-sudo=true
+# nixos:examples=nixos apply system --install-user dhh --first-install
+# nixos:hidden=true
+
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+Usage: nixos apply system --install-user USER [--first-install|--upgrade]
+       nixos apply system --defer-provisioning --first-install
+
+Runs root-owned NixOS system setup. The ISO calls this in the target chroot
+after packages are installed and the target user exists. It also calls
+nixos-apply-hardware, so hardware setup cannot be accidentally skipped.
+
+--defer-provisioning runs without an install user: deferred-provisioning installs create the user at
+first boot, so scripts that grant group memberships record them in
+/var/lib/nixos/provisioning/groups instead of calling usermod.
+USAGE
+}
+
+install_user="${NIXOS_INSTALL_USER:-}"
+first_install=0
+upgrade=0
+defer_provisioning=0
+
+while (($#)); do
+  case "$1" in
+    --install-user)
+      install_user="${2:-}"
+      shift 2
+      ;;
+    --defer-provisioning)
+      defer_provisioning=1
+      shift
+      ;;
+    --first-install)
+      first_install=1
+      shift
+      ;;
+    --upgrade)
+      upgrade=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if (( EUID != 0 )); then
+  echo "Error: nixos-apply-system must run as root" >&2
+  exit 1
+fi
+
+if (( defer_provisioning )); then
+  install_user=""
+else
+  if [[ -z $install_user || $install_user == "root" ]]; then
+    echo "Error: --install-user must name the target non-root user" >&2
+    exit 1
+  fi
+
+  if ! getent passwd "$install_user" >/dev/null; then
+    echo "Error: user '$install_user' does not exist" >&2
+    exit 1
+  fi
+fi
+
+export NIXOS_INSTALL_USER="$install_user"
+export NIXOS_FIRST_INSTALL="$first_install"
+export NIXOS_UPGRADE="$upgrade"
+export NIXOS_PATH="${NIXOS_PATH:-/usr/share/nixos}"
+export NIXOS_INSTALL="${NIXOS_INSTALL:-$NIXOS_PATH/install}"
+export NIXOS_INSTALL_LOG_FILE="${NIXOS_INSTALL_LOG_FILE:-/var/log/nixos-install.log}"
+export PATH="$NIXOS_PATH/bin:$PATH"
+
+source "$NIXOS_INSTALL/helpers/logging.sh"
+start_install_log
+
+source "$NIXOS_INSTALL/config/all.sh"
+
+if (( defer_provisioning )); then
+  nixos-apply-hardware --defer-provisioning
+else
+  nixos-apply-hardware --install-user "$install_user"
+fi
+
+source "$NIXOS_INSTALL/login/all.sh"
+source "$NIXOS_INSTALL/post-install/all.sh"
+
+stop_install_log

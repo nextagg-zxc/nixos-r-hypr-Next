@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nixos:summary=Dismiss a notification by summary substring. Used by the first-run notifications to dismiss them after clicking for action.
+# nixos:args=<summary>
+
+if (($# == 0)); then
+  echo "Usage: nixos-notification-dismiss <summary>"
+  exit 1
+fi
+
+nixos-shell -q notifications dismiss "$1"

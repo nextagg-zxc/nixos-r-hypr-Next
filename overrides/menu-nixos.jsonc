@@ -1,0 +1,57 @@
+// Packages / Update на NixOS: всё ставится через конфиг (flake).
+"packages.nixos": {"icon":"󰍉","label":"Найти пакет","description":"search.nixos.org, потом впиши в конфиг","aliases":["nix","search"],"action":"nixos-launch-browser https://search.nixos.org/packages"},
+"packages.config": {"icon":"󰒓","label":"Конфиг системы","description":"Выбрать файл конфига и открыть в nano (как cfg)","aliases":["config","flake","cfg"],"action":"nixos-launch-tui nextagg-config"},
+"packages.apply": {"icon":"󰑓","label":"Применить конфиг","description":"nixos-rebuild switch","aliases":["rebuild","switch"],"action":"nixos-launch-floating-terminal-with-presentation nextagg-rebuild"},
+"packages.save": {"icon":"󰆓","label":"Сохранить вид","description":"Забрать правки бара/меню/hypr из ~/.config в репозиторий","action":"nixos-launch-floating-terminal-with-presentation nextagg-save-look"},
+
+"update.nixos": {"icon":"","iconFont":"","label":"NixOS","description":"Обновить nixpkgs и применить","action":"nixos-launch-floating-terminal-with-presentation nextagg-update"},
+"update.rollback": {"icon":"󰕌","label":"Откатить систему","description":"Вернуть предыдущую сборку","aliases":["rollback","откат"],"action":"nixos-launch-floating-terminal-with-presentation nextagg-rollback"},
+"update.gc": {"icon":"󰃢","label":"Почистить сборки","description":"Оставить последние 7 дней","action":"nixos-launch-floating-terminal-with-presentation nextagg-gc"},
+"update.channel": {"when":"false"},
+"update.themes": {"when":"false"},
+"learn.nixos": {"when":"false"},
+"trigger": {"when":"false"},
+"appearance.theme": {"when":"false"},
+"install.style.theme": {"when":"false"},
+"remove.theme": {"when":"false"},
+"claude": {"when":"false"},
+"update.config": {"when":"false"},
+"update.kernel": {"when":"false"},
+"update.firmware": {"when":"command -v fwupdmgr"},
+"update.epic": {"when":"false"},
+
+// Установка/удаление пакетов из меню на NixOS не работает — прячем.
+"install.package": {"when":"false"},
+"install.aur": {"when":"false"},
+"install.ai": {"when":"false"},
+"install.service": {"when":"false"},
+"install.development": {"when":"false"},
+"install.editor": {"when":"false"},
+"install.gaming": {"when":"false"},
+"install.browser": {"when":"false"},
+"install.terminal": {"when":"false"},
+"install.windows": {"when":"false"},
+"install.preinstalls": {"when":"false"},
+"remove.package": {"when":"false"},
+"remove.ai": {"when":"false"},
+"remove.dictation": {"when":"false"},
+"remove.service": {"when":"false"},
+"remove.development": {"when":"false"},
+"remove.gaming": {"when":"false"},
+"remove.browser": {"when":"false"},
+"remove.preinstalls": {"when":"false"},
+"remove.security": {"when":"false"},
+
+// Limine и откат через snapper на NixOS не нужны: откат — в меню загрузки.
+"setup.direct-boot": {"when":"false"},
+"setup.reset": {"when":"false"},
+
+// Убрано по просьбе (23.11): Install/Remove внутри Packages (пакеты ставятся через конфиг),
+// Appearance и Plugins (ключ setup → setup.plugin) из главного меню.
+"packages.install": {"when":"false"},
+"packages.remove": {"when":"false"},
+"appearance": {"when":"false"},
+"setup": {"when":"false"},
+
+// Без установщиков в меню (24.11, по просьбе): REA → «Установить Hopper».
+"rea.install-hopper": {"when":"false"},

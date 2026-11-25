@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking NixOS update entrypoint...
+When = PreTransaction
+Depends = nixos
+Exec = /usr/bin/nixos-update-pacman-guard
+AbortOnFail

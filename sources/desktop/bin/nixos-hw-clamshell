@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# nixos:summary=Returns true when clamshell mode is active
+# nixos:hidden=true
+
+# Clamshell = lid closed while driving one or more external monitors.
+nixos-hw-laptop-closed && nixos-hw-external-monitors

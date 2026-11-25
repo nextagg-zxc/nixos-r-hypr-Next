@@ -1,0 +1,9 @@
+/clipboard.json
+__pycache__/
+*.py[cod]
+.DS_Store
+*.log
+*.tmp
+.env
+.env.*
+!.env.example

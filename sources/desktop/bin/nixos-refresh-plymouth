@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nixos:summary=Overwrite the user config for the Plymouth drive decryption and boot sequence with the NixOS default and rebuild it.
+# nixos:requires-sudo=true
+
+# Reuse the fixed-file publisher so root never resolves the source checkout or
+# follows a destination symlink while restoring the packaged assets.
+exec "$NIXOS_PATH/bin/nixos-plymouth-set" --refresh-default

@@ -1,0 +1,8 @@
+# Restart applications after editing Compose sequences
+
+# Include fast emoji access
+include "/usr/share/nixos/default/xcompose"
+
+# Identification
+<Multi_key> <space> <n> : ""
+<Multi_key> <space> <e> : ""

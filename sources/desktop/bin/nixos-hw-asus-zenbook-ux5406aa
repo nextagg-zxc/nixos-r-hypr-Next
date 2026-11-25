@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Detect ASUS Zenbook UX5406AA series laptops on Intel Panther Lake.
+
+nixos-hw-match "ux5406aa" && nixos-hw-intel-ptl

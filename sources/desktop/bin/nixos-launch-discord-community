@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nixos:summary=Open the NixOS Discord community in the Discord app or a browser.
+
+invite="https://discord.gg/tXFUdasqhY"
+
+if nixos-cmd-present discord; then
+  exec setsid uwsm-app -- discord --url -- "discord://-/invite/${invite##*/}"
+else
+  exec nixos-launch-webapp "$invite"
+fi

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# nixos:summary=Remove the xpadneo Xbox controller driver and undo its module/blacklist config.
+# nixos:group=remove
+# nixos:name=gaming xbox-controllers
+# nixos:requires-sudo=true
+
+set -e
+
+nixos-pkg-drop xpadneo-dkms
+
+sudo rm -f /etc/modprobe.d/blacklist-xpad.conf /etc/modules-load.d/xpadneo.conf
+
+echo ""
+echo "Xbox controller support removed. Reboot to fully unload xpadneo and restore xpad."

@@ -1,0 +1,13 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": {
+    "Id": "org.nixos.windows11",
+    "Name": "Windows 11 (NixOS)",
+    "Name[ru]": "Как Windows 11",
+    "Description": "Panel, Start menu, window buttons and colours like Windows 11",
+    "Description[ru]": "Панель, «Пуск», кнопки окон и цвета как в Windows 11",
+    "License": "GPL-3.0-or-later",
+    "Version": "1.0",
+    "Authors": [ { "Name": "NixOS" } ]
+  }
+}

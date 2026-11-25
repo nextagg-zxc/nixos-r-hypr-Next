@@ -1,0 +1,6 @@
+#!/bin/bash
+# nixos:summary=Launch emojis
+# nixos:group=menu
+# nixos:examples=nixos menu emoji
+
+nixos-shell shell toggle nixos.emojis

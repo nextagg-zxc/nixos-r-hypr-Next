@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=List available monospace fonts
+# nixos:examples=nixos font list | nixos font set "CaskaydiaMono Nerd Font"
+
+fc-list :spacing=100 -f "%{family[0]}\n" | grep -v -i -E 'emoji|signwriting|nixos' | sort -u

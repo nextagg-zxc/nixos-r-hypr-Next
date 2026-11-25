@@ -1,0 +1,8 @@
+#!/bin/sh
+# Launcher: the distro's /usr/bin/python3 (where its PySide6 lives; python3 from PATH
+# may be mise/pyenv/conda without it), or our venv fallback.
+# cd / and PYTHONSAFEPATH: never import modules from the current directory
+# (no -P flag: Ubuntu 22.04 ships Python 3.10).
+PY=/usr/bin/python3
+[ -x /usr/lib/zapret-hub/venv/bin/python ] && PY=/usr/lib/zapret-hub/venv/bin/python
+cd / && PYTHONSAFEPATH=1 PYTHONPATH=/usr/lib/zapret-hub exec "$PY" -m zaprethub "$@"

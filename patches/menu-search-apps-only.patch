@@ -1,0 +1,30 @@
+--- a/shell/plugins/menu/Menu.qml	2026-11-24 11:44:24.408038104 +0100
++++ b/shell/plugins/menu/Menu.qml	2026-11-24 11:44:32.001102802 +0100
+@@ -553,6 +553,17 @@
+     return MenuModel.isVisible(root.items, root.itemOrder, root.whenResults, entry)
+   }
+ 
++  // nextagg: a row is searchable only if every submenu between it and the
++  // current menu is visible, so hidden menus (when:false) do not leak rows.
++  function ancestorsVisible(id, stopAt) {
++    var entry = root.item(id)
++    while (entry && entry.parent && entry.parent !== stopAt && entry.parent !== "root") {
++      entry = root.item(entry.parent)
++      if (!entry || !root.isVisible(entry)) return false
++    }
++    return true
++  }
++
+   // Label with the ✓ marker baked in when `checked:` or `disabled:` evaluated
+   // truthy.
+   function labelFor(entry) {
+@@ -727,6 +738,9 @@
+         var entry = root.item(root.itemOrder[i])
+         if (!entry || entry.id === "root") continue
+         if (!root.isDescendantOf(entry.id, active)) continue
++        // nextagg: on the root screen typing searches installed apps only.
++        if (active === "root" && entry.kind !== "app") continue
++        if (!root.ancestorsVisible(entry.id, active)) continue
+         if (!root.matchesQuery(entry, query)) continue
+ 
+         var detail = root.parentPathFor(entry.id)

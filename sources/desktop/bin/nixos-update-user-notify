@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Compatibility wrapper for nixos-migrate-notify.
+# nixos:hidden=true
+
+exec nixos-migrate-notify "$@"

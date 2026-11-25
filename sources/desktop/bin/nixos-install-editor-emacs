@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# nixos:summary=Install Emacs with NixOS theme and font integration via the nixos-emacs AUR package
+
+echo "Installing Emacs..."
+nixos-pkg-aur-add nixos-emacs && nixos-install-emacs
+
+# emacsclient opens a frame on the running daemon, not a second Emacs
+setsid uwsm-app -- gtk-launch emacsclient >/dev/null 2>&1 &

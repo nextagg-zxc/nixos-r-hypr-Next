@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# nixos:summary=Install a Nerd Font package and switch the system to it
+# nixos:args=<display-name> <package> <family>
+# nixos:examples=nixos install font 'Cascadia Mono' ttf-cascadia-mono-nerd 'CaskaydiaMono Nerd Font'
+
+name="${1-}"
+package="${2-}"
+family="${3-}"
+
+if [[ -z $name || -z $package || -z $family ]]; then
+  echo "Usage: nixos-install-font <display-name> <package> <family>" >&2
+  exit 1
+fi
+
+printf -v install_message '%q' "Installing ${name}..."
+printf -v package_arg '%q' "$package"
+printf -v family_arg '%q' "$family"
+
+exec nixos-launch-floating-terminal-with-presentation \
+  "echo ${install_message}; nixos-pkg-add ${package_arg} && sleep 2 && nixos-font-set ${family_arg}"

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nixos:summary=Toggle screensaver availability
+
+nixos-toggle screensaver-off
+
+if nixos-toggle-enabled screensaver-off; then
+  nixos-notification-send -g 󱄄 "$(nixos-i18n screensaver.disabled)"
+else
+  nixos-notification-send -g 󱄄 "$(nixos-i18n screensaver.enabled)"
+fi

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nixos:summary=Open Voxtype AI model setup
+
+set -e
+
+nixos-launch-floating-terminal-with-presentation "voxtype setup model"
+nixos-restart-shell

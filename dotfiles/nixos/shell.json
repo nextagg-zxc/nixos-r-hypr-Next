@@ -1,0 +1,176 @@
+{
+  "bar": {
+    "centerAnchor": "nextagg.menu-button",
+    "id": "nextagg.bar",
+    "layout": {
+      "center": [
+        {
+          "iconColor": "#ffffff",
+          "id": "sys-monitor",
+          "refreshInterval": 2000,
+          "showCpu": true,
+          "showExternalStorage": false,
+          "showIcons": true,
+          "showNet": false,
+          "showNetUpload": false,
+          "showRam": true,
+          "showStorage": false
+        },
+        {
+          "horizontalMargin": 10,
+          "iconOffsetX": 3.5,
+          "id": "nextagg.menu-button",
+          "onAccent": true,
+          "tone": "accent",
+          "iconScale": 1.35
+        },
+        {
+          "id": "nextagg.temps",
+          "segment": "temp",
+          "tone": 2
+        }
+      ],
+      "left": [
+        {
+          "id": "nextagg.workspaces",
+          "segment": "ws",
+          "tone": 3
+        },
+        {
+          "badgeColor": "#b4befe",
+          "fontSize": 13,
+          "id": "nextagg.keyboard-layout",
+          "segment": "kbd",
+          "toastScreen": "HDMI-A-3",
+          "tone": 2
+        },
+        {
+          "fontSize": 13,
+          "format": "HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "id": "nextagg.clock",
+          "segment": "clock",
+          "tone": 1,
+          "verticalFormat": "HH\n—\nmm"
+        },
+        {
+          "activeColor": "#b4befe",
+          "alwaysShow": true,
+          "id": "nextagg.indicators",
+          "items": [
+            "StayAwake"
+          ],
+          "segment": "awake",
+          "tone": 0
+        }
+      ],
+      "right": [
+        {
+          "id": "nixos.bluetooth",
+          "segment": "sys",
+          "tone": 1
+        },
+        {
+          "activeColor": "#b4befe",
+          "alwaysShow": true,
+          "id": "nextagg.indicators",
+          "items": [
+            "Dnd"
+          ],
+          "segment": "dnd",
+          "tone": 0
+        },
+        {
+          "id": "nextagg.usb-drives",
+          "segment": "sys",
+          "tone": 1
+        },
+        {
+          "hidden": [],
+          "id": "nextagg.tray",
+          "pinned": []
+        },
+        {
+          "hidden": true,
+          "id": "custom.rounded-corner-blur",
+          "segment": "sys",
+          "tone": 1
+        },
+        {
+          "id": "nixos.power",
+          "segment": "pwr",
+          "tone": 3
+        },
+        {
+          "id": "nixos.network",
+          "segment": "io",
+          "tone": 2
+        },
+        {
+          "id": "nixos.audio",
+          "segment": "io",
+          "tone": 2
+        },
+        {
+          "id": "nixos.monitor",
+          "segment": "pwr",
+          "tone": 3
+        }
+      ],
+      "centerBegin": [],
+      "centerEnd": [
+        {
+          "id": "nextagg.menu",
+          "hidden": true
+        }
+      ],
+      "tray": []
+    },
+    "palette": {
+      "accent": "#b4befe",
+      "background": "#11111b",
+      "text": "#cdd6f4",
+      "tones": [
+        "#181825",
+        "#1e1e2e",
+        "#313244",
+        "#45475a"
+      ],
+      "urgent": "#cba6f7"
+    },
+    "position": "top",
+    "transparent": true,
+    "locked": true
+  },
+  "cloneSourceRestores": [
+    "nextagg.notifications",
+    "nextagg.idle",
+    "nextagg.menu",
+    "nextagg.polkit"
+  ],
+  "disabledPlugins": [
+    "nixos.notifications",
+    "nixos.idle",
+    "nixos.menu",
+    "nixos.polkit"
+  ],
+  "idle": {
+    "lock": 300,
+    "screensaver": 150
+  },
+  "plugins": [
+    {
+      "id": "nixos-resizeable.resizeable"
+    },
+    {
+      "id": "nextagg.notifications"
+    },
+    {
+      "id": "nextagg.idle"
+    },
+    {
+      "id": "nextagg.polkit"
+    }
+  ],
+  "version": 1
+}

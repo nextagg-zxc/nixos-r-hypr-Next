@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Set the correct power profile on boot based on current AC/battery state.
+
+exec nixos-powerprofiles-set autodetect

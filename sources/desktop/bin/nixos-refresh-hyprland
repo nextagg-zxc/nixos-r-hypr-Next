@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# nixos:summary=Overwrite all the user Hyprland Lua configs in ~/.config/hypr with the NixOS defaults.
+
+nixos-refresh-config hypr/.luarc.json
+nixos-refresh-config hypr/autostart.lua
+nixos-refresh-config hypr/bindings.lua
+nixos-refresh-config hypr/input.lua
+nixos-refresh-config hypr/looknfeel.lua
+nixos-refresh-config hypr/hyprland.lua
+nixos-refresh-config hypr/monitors.lua
+
+mkdir -p ~/.local/state/nixos/toggles/hypr
+cp "$NIXOS_PATH/default/hypr/toggles/flags.lua" ~/.local/state/nixos/toggles/hypr/

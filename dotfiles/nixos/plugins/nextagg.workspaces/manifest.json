@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nextagg.workspaces",
+  "name": "My Workspaces",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Workspace number indicators",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Workspaces.qml"
+  },
+  "barWidget": {
+    "displayName": "My Workspaces",
+    "description": "Workspace number indicators",
+    "category": "Compositor",
+    "allowMultiple": false
+  },
+  "nixos": {
+    "clonedFrom": "nixos.workspaces"
+  }
+}

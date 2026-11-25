@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Show the current battery status notification
+
+nixos-notification-send -g 󰁹 -u low "$(nixos-battery-status)"

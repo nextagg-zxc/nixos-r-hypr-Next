@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Detect ASUS ExpertBook B9406 series laptops on Intel Panther Lake.
+
+nixos-hw-match "B9406" && nixos-hw-intel-ptl

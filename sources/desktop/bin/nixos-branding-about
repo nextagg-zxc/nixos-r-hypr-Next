@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# nixos:summary=Edit, set, or reset About branding
+# nixos:group=branding
+# nixos:name=about
+# nixos:args=<image|text|reset>
+# nixos:examples=nixos branding about image | nixos branding about text | nixos branding about reset
+
+set -euo pipefail
+
+case "${1:-}" in
+image)
+  image=$(nixos-file-select --title "$(nixos-i18n branding.pickAboutImage)" --extensions "png svg")
+  if nixos-transcode-ascii "$image" ~/.config/nixos/branding/about.txt --width 54 --height 26; then
+    nixos-launch-about >/dev/null 2>&1
+  fi
+  ;;
+text)
+  nixos-launch-editor ~/.config/nixos/branding/about.txt >/dev/null 2>&1 && nixos-launch-about >/dev/null 2>&1
+  ;;
+reset)
+  cp "$NIXOS_PATH/icon.txt" ~/.config/nixos/branding/about.txt && nixos-launch-about >/dev/null 2>&1
+  ;;
+*)
+  echo "Usage: nixos-branding-about <image|text|reset>" >&2
+  exit 1
+  ;;
+esac

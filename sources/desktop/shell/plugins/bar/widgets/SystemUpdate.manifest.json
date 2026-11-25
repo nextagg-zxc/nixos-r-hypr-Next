@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "nixos.system-update",
+  "name": "NixOS update",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Indicates available NixOS updates",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "SystemUpdate.qml"
+  },
+  "barWidget": {
+    "displayName": "NixOS update",
+    "description": "Indicates available NixOS updates",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

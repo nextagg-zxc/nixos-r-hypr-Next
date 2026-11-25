@@ -1,0 +1,40 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  // Logo: ASCII NixOS snowflake (pkgs/nixos-fastfetch.py). Colors come from the terminal palette, so they follow the NixOS theme.
+  "logo": {
+    "type": "builtin",
+    "source": "nixos",
+    "color": { "1": "38;2;180;190;254", "2": "38;2;137;180;250" },
+    "padding": { "top": 2, "left": 2, "right": 4 }
+  },
+  "display": {
+    "separator": "  ",
+    "color": { "keys": "38;2;180;190;254", "title": "38;2;180;190;254" },
+    "percent": { "color": { "green": "blue", "yellow": "yellow", "red": "red" } },
+    "constants": ["│"]
+  },
+  "modules": [
+    "break",
+    { "type": "title", "format": "{#1}{#38;2;180;190;254}{user-name}{#}{#1}{#38;2;180;190;254}@{#}{#1}{#magenta}{host-name}" },
+    { "type": "custom", "format": "{#38;2;180;190;254}╭─ 󰍛  Hardware ────────────────────────" },
+    { "type": "cpu",     "key": "{$1} 󰻠", "format": "{name} · {cores-logical} threads" },
+    { "type": "gpu",     "key": "{$1} 󰢮", "format": "{name}", "detectionMethod": "pci" },
+    { "type": "display", "key": "{$1} 󰍹", "format": "{width}×{height} · {refresh-rate} Hz" },
+    { "type": "memory",  "key": "{$1} 󰘚", "format": "{used} / {total} ({percentage})" },
+    { "type": "disk",    "key": "{$1} 󰋊", "folders": "/", "format": "{size-used} / {size-total} ({size-percentage})" },
+    { "type": "custom", "format": "{#38;2;180;190;254}├─ 󰣇  System ────────────────────────" },
+    { "type": "command", "key": "{$1} ", "text": "echo \"NixOS $(nixos-version | cut -d. -f1-2)\"" },
+    { "type": "kernel",  "key": "{$1} ", "format": "{release}" },
+    { "type": "wm",      "key": "{$1} ", "format": "{pretty-name} {version}" },
+    { "type": "command", "key": "{$1} ", "text": "nextagg-ff terminal" },
+    { "type": "shell",   "key": "{$1} ", "format": "{pretty-name} {version}" },
+    { "type": "command", "key": "{$1} 󰏖", "text": "nextagg-ff packages" },
+    { "type": "command", "key": "{$1} 󰸌", "text": "printf '%s  \\e[31m●\\e[32m●\\e[33m●\\e[34m●\\e[35m●\\e[36m●\\e[37m●\\e[0m' \"$(nixos-theme-current)\"" },
+    { "type": "custom", "format": "{#38;2;180;190;254}├─ 󱑂  Time ────────────────────────────" },
+    { "type": "uptime",  "key": "{$1} 󱫐", "format": "up {days}d {hours}h {minutes}m" },
+    { "type": "command", "key": "{$1} 󱦟", "text": "echo \"installed $(( ($(date +%s) - $(stat -c %W /)) / 86400 )) days ago · updated $(date -d @$(stat -c %Y /run/current-system) '+%d.%m %H:%M')\"" },
+    { "type": "custom", "format": "{#38;2;180;190;254}╰──────────────────────────────────────" },
+    "break",
+    { "type": "colors", "symbol": "circle", "paddingLeft": 2 }
+  ]
+}

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Overwrite the user tmux config with the NixOS default and reload tmux.
+
+nixos-refresh-config tmux/tmux.conf
+nixos-restart-tmux

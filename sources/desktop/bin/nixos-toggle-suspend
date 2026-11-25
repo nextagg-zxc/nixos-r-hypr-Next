@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# nixos:summary=Toggle suspend availability in the system menu
+
+if nixos-sleep-disabled; then
+  nixos-notification-send -g 󰒲 "$(nixos-i18n suspend.turnedOffOnMachine)"
+  exit 0
+fi
+
+nixos-toggle suspend-off
+
+if nixos-toggle-enabled suspend-off; then
+  nixos-notification-send -g 󰒲 "$(nixos-i18n suspend.removedFromMenu)"
+else
+  nixos-notification-send -g 󰒲 "$(nixos-i18n suspend.availableInMenu)"
+fi

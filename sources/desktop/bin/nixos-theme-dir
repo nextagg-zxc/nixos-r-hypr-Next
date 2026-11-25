@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# nixos:summary=Print the directory holding a theme, preferring a user-installed copy
+# nixos:args=<theme-name>
+# nixos:examples=nixos theme dir tokyo-night
+
+theme="${1:-}"
+
+if [[ -z $theme ]]; then
+  echo "Usage: nixos-theme-dir <theme-name>" >&2
+  exit 1
+fi
+
+if [[ -d $HOME/.config/nixos/themes/$theme ]]; then
+  echo "$HOME/.config/nixos/themes/$theme"
+else
+  echo "$NIXOS_PATH/themes/$theme"
+fi

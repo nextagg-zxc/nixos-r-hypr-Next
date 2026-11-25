@@ -1,0 +1,41 @@
+# Hyprland global shortcuts the NixOS shell registers, one per line: a menu
+# route to toggle, a panel plugin to toggle, a volume or brightness key, or an
+# argument-free IPC call as target.method. A binding written as o.bind(keys,
+# description, { menu = "theme" }), { panel = "nixos.emojis" },
+# { audio = "raise" }, { brightness = "raise" } or { ipc = "media.next" }
+# dispatches the matching shortcut straight to the shell, with no process to
+# spawn per keypress. Anything missing here still binds, through the
+# nixos-menu, nixos-shell, nixos-audio-output-volume or
+# nixos-brightness-display command instead.
+menu root
+menu apps
+menu capture
+menu toggle
+menu hardware
+menu system
+menu background
+menu theme
+menu share
+menu reminder-set
+panel nixos.clipboard
+panel nixos.emojis
+panel nixos.audio
+panel nixos.bluetooth
+panel nixos.monitor
+panel nixos.clock
+panel nixos.elsewhen
+panel nixos.network
+panel nixos.power
+audio raise
+audio lower
+audio mute-toggle
+brightness raise
+brightness lower
+ipc media.playPause
+ipc media.next
+ipc media.previous
+ipc notifications.act
+ipc notifications.dismissOne
+ipc notifications.dismissAll
+ipc notifications.invokeLast
+ipc notifications.showHistory

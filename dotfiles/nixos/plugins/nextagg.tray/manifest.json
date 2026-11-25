@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "nextagg.tray",
+  "name": "My System tray",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Status notifier items",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Tray.qml"
+  },
+  "barWidget": {
+    "displayName": "My System tray",
+    "description": "Status notifier items",
+    "category": "Status",
+    "allowMultiple": false
+  },
+  "nixos": {
+    "clonedFrom": "nixos.tray"
+  }
+}

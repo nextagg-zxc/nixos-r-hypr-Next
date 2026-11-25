@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "org.lsong.window-switcher",
+  "name": "NixOS Switcher",
+  "version": "0.1.0",
+  "author": "lsongdev",
+  "license": "MIT",
+  "description": "Fast Super+Tab window switching with MRU-ordered visual previews for NixOS.",
+  "keepLoaded": true,
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Switcher.qml"
+  }
+}

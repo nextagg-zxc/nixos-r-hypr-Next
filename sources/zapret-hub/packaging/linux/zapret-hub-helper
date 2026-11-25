@@ -1,0 +1,14 @@
+#!/usr/bin/python3 -I
+"""Root helper entry point (pkexec / systemd). -I: ignore PYTHONPATH and user site."""
+import os
+import sys
+
+here = os.path.dirname(os.path.realpath(__file__))
+for p in (here, os.path.join(here, "..", "..")):   # installed: /usr/lib/zapret-hub, dev: repo root
+    if os.path.isdir(os.path.join(p, "zaprethub")):
+        sys.path.insert(0, os.path.abspath(p))
+        break
+
+from zaprethub.helper_linux import main  # noqa: E402
+
+main()

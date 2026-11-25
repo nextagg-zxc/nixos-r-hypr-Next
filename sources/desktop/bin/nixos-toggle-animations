@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# nixos:summary=Toggle animations, blur and shadows, which are slow without a GPU
+# nixos:args=[toggle|on|off]
+# nixos:examples=nixos toggle animations | nixos toggle animations off | nixos toggle animations on
+
+# The flag records animations being off, so on and off swap on the way through.
+case ${1:-toggle} in
+toggle) nixos-hyprland-toggle no-animations toggle ;;
+on) nixos-hyprland-toggle no-animations off ;;
+off) nixos-hyprland-toggle no-animations on ;;
+*)
+  echo "Usage: nixos-toggle-animations [toggle|on|off]" >&2
+  exit 1
+  ;;
+esac
+
+if nixos-hyprland-toggle-enabled no-animations; then
+  nixos-notification-send -g 󰗘 "$(nixos-i18n animations.disabled)"
+else
+  nixos-notification-send -g 󰗘 "$(nixos-i18n animations.enabled)"
+fi

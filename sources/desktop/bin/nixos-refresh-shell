@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nixos:summary=Reset shell.json to NixOS defaults
+# nixos:examples=nixos refresh shell
+
+set -euo pipefail
+
+nixos-refresh-config nixos/shell.json
+nixos-bar defaults
+
+nixos-restart-shell

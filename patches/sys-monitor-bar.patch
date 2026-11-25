@@ -1,0 +1,109 @@
+diff --git i/BarWidget.qml w/BarWidget.qml
+index 5b0e8bc..4aaa32b 100644
+--- i/BarWidget.qml
++++ w/BarWidget.qml
+@@ -18,6 +18,14 @@ BarWidget {
+   property bool showNet: true
+   property bool showNetUpload: false
+   property bool showIcons: true
++  // Bar icon color; "iconColor" in shell.json overrides the theme accent
++  // (e.g. "foreground" to match the text).
++  readonly property color iconColor: {
++    var value = String(setting("iconColor", "accent"))
++    if (value === "accent") return Color.accent
++    if (value === "foreground") return root.barForeground
++    return value
++  }
+   property int refreshInterval: 2000
+ 
+   // Metrics State
+@@ -349,7 +357,7 @@ BarWidget {
+           text: ""
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+-          color: root.cpuUrgent ? root.activeUrgentColor : Color.accent
++          color: root.cpuUrgent ? root.activeUrgentColor : root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -374,7 +382,7 @@ BarWidget {
+           text: ""
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+-          color: root.ramUrgent ? root.activeUrgentColor : Color.accent
++          color: root.ramUrgent ? root.activeUrgentColor : root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -399,7 +407,7 @@ BarWidget {
+           text: "󰋊"
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+-          color: root.storageUrgent ? root.activeUrgentColor : Color.accent
++          color: root.storageUrgent ? root.activeUrgentColor : root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -424,7 +432,7 @@ BarWidget {
+           text: "󱛟"
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+-          color: Color.accent
++          color: root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -450,7 +458,7 @@ BarWidget {
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+           font.bold: true
+-          color: Color.accent
++          color: root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -476,7 +484,7 @@ BarWidget {
+           font.family: Style.font.family
+           font.pixelSize: Style.font.body
+           font.bold: true
+-          color: Color.accent
++          color: root.iconColor
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -507,7 +515,7 @@ BarWidget {
+           text: ""
+           font.family: Style.font.family
+           font.pixelSize: Style.font.caption
+-          color: root.cpuUrgent ? root.activeUrgentColor : Color.accent
++          color: root.cpuUrgent ? root.activeUrgentColor : root.iconColor
+         }
+         Text {
+           text: root.cpuPercent + "%"
+@@ -526,7 +534,7 @@ BarWidget {
+           text: ""
+           font.family: Style.font.family
+           font.pixelSize: Style.font.caption
+-          color: root.ramUrgent ? root.activeUrgentColor : Color.accent
++          color: root.ramUrgent ? root.activeUrgentColor : root.iconColor
+         }
+         Text {
+           text: root.ramPercent + "%"
+@@ -545,7 +553,7 @@ BarWidget {
+           text: "󰋊"
+           font.family: Style.font.family
+           font.pixelSize: Style.font.caption
+-          color: root.storageUrgent ? root.activeUrgentColor : Color.accent
++          color: root.storageUrgent ? root.activeUrgentColor : root.iconColor
+         }
+         Text {
+           text: root.storagePercent + "%"
+@@ -564,7 +572,7 @@ BarWidget {
+           text: "󱛟"
+           font.family: Style.font.family
+           font.pixelSize: Style.font.caption
+-          color: Color.accent
++          color: root.iconColor
+         }
+         Text {
+           text: root.externalBarText

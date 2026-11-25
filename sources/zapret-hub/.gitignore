@@ -1,0 +1,10 @@
+.superpowers/
+__pycache__/
+*.pyc
+build/
+dist/
+.venv/
+.venv-win/
+docs/plans/
+.pytest_cache/
+.ruff_cache/

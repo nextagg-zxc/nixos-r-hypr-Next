@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# nixos:summary=Restore the default NixOS Plymouth boot theme and SDDM login screen
+# nixos:requires-sudo=true
+
+set -euo pipefail
+
+"$NIXOS_PATH/bin/nixos-refresh-plymouth"
+"$NIXOS_PATH/bin/nixos-refresh-sddm"

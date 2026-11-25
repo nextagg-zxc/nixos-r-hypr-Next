@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Check whether NixOS has turned off system sleep on this machine.
+# nixos:hidden=true
+
+[[ -f ${NIXOS_SLEEP_CONFIG_DIR:-/etc/systemd/sleep.conf.d}/nixos-sleep-disabled.conf ]]

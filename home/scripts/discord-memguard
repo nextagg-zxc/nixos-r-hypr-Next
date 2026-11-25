@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# discord-memguard: Linux equivalent of Discord's Windows "restart above 4 GB" failsafe.
+# Discord's renderer sometimes runs away (seen 2026-11-14: 16.6 GB + 5.5 GB swap in one session,
+# normal sessions peak at 0.9-2.7 GB). Root cause is inside closed-source Discord/Electron,
+# so this watches total RSS+swap of all Discord processes, logs which process is growing,
+# and restarts Discord before it drags the whole system into swap.
+#
+# Env overrides: WARN_MB (default 4096), KILL_MB (default 6144), INTERVAL (default 5 s)
+
+WARN_MB=${WARN_MB:-4096}
+KILL_MB=${KILL_MB:-6144}
+INTERVAL=${INTERVAL:-5}
+discord_pattern='Discord|\.Discord-wrappe'
+LOG=${XDG_STATE_HOME:-$HOME/.local/state}/discord-memguard.log
+mkdir -p "$(dirname "$LOG")"
+
+snapshot() {   # per-process table: pid rss swap type
+    local p t
+    for p in $(pgrep -u "$UID" -x "$discord_pattern"); do
+        t=$(tr '\0' ' ' </proc/$p/cmdline 2>/dev/null | grep -oE -- '--(type|utility-sub-type)=[^ ]+' | tr '\n' ' ')
+        awk -v p="$p" -v t="${t:-main}" '/^VmRSS/{r=$2}/^VmSwap/{s=$2}
+            END{printf "  pid=%-8s rss=%6d MB swap=%6d MB  %s\n", p, r/1024, s/1024, t}' /proc/$p/status 2>/dev/null
+    done
+}
+
+total_mb() {
+    local p sum=0 v
+    for p in $(pgrep -u "$UID" -x "$discord_pattern"); do
+        v=$(awk '/^VmRSS|^VmSwap/{s+=$2}END{print int(s/1024)}' /proc/$p/status 2>/dev/null)
+        sum=$((sum + ${v:-0}))
+    done
+    echo $sum
+}
+
+restart_discord() {
+    pkill -u "$UID" -TERM -x "$discord_pattern"
+    for _ in $(seq 1 20); do pgrep -u "$UID" -x "$discord_pattern" >/dev/null || break; sleep 0.5; done
+    pgrep -u "$UID" -x "$discord_pattern" >/dev/null && pkill -u "$UID" -KILL -x "$discord_pattern"
+    sleep 1
+    setsid -f uwsm-app -- discord >/dev/null 2>&1
+}
+
+if [[ ${1:-} == --status ]]; then
+    echo "Discord total: $(total_mb) MB (RSS + swap)"
+    snapshot
+    exit 0
+fi
+
+warned=0
+prev=0
+while true; do
+    sleep "$INTERVAL"
+    pgrep -u "$UID" -x "$discord_pattern" >/dev/null || { warned=0; prev=0; continue; }
+    mb=$(total_mb)
+    (( prev )) && rate=$(( (mb - prev) / INTERVAL )) || rate=0
+    prev=$mb
+
+    if (( mb >= KILL_MB )); then
+        { echo "$(date '+%F %T') RESTART total=${mb} MB (+${rate} MB/s)"; snapshot; } >>"$LOG"
+        notify-send -u critical -a Discord "Discord: утечка памяти" \
+            "Съел ${mb} МБ, перезапускаю. Лог: $LOG"
+        restart_discord
+        warned=0; prev=0
+        sleep 30
+    elif (( mb >= WARN_MB && ! warned )); then
+        { echo "$(date '+%F %T') WARN total=${mb} MB (+${rate} MB/s)"; snapshot; } >>"$LOG"
+        notify-send -u normal -a Discord "Discord: много памяти" \
+            "${mb} МБ. На ${KILL_MB} МБ перезапущу сам."
+        warned=1
+    elif (( mb < WARN_MB - 512 )); then
+        warned=0
+    fi
+done

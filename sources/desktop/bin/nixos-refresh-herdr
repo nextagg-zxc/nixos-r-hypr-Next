@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Overwrite the user herdr config with the NixOS default and reload herdr.
+
+nixos-refresh-config herdr/config.toml
+nixos-restart-herdr

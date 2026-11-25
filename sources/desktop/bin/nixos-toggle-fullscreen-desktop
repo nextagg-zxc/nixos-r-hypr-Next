@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# nixos:summary=Toggle a full screen desktop: hide the top bar and remove the window gaps together
+# nixos:args=[toggle|on|off]
+# nixos:examples=nixos toggle fullscreen desktop | nixos toggle fullscreen desktop off | nixos toggle fullscreen desktop on
+
+ACTION="${1:-toggle}"
+
+case $ACTION in
+  toggle|"")
+    # Only leave full screen when both halves are already in it, so a lone bar
+    # or a lone gap toggle is pulled into line rather than flipped away.
+    if nixos-toggle-enabled bar-off && nixos-hyprland-toggle-enabled window-no-gaps; then
+      ACTION="off"
+    else
+      ACTION="on"
+    fi
+    ;;
+  on|off) ;;
+  *)
+    echo "Usage: nixos-toggle-fullscreen-desktop [toggle|on|off]" >&2
+    exit 1
+    ;;
+esac
+
+nixos-toggle-bar "$ACTION"
+nixos-hyprland-toggle window-no-gaps "$ACTION"

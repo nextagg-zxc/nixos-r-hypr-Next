@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# nixos:summary=Clear the shell update indicator after an update
+# nixos:hidden=true
+
+# nixos-update now clears the indicator itself. This stays for an update
+# started by an older nixos-update: its pipeline was parsed before the
+# upgrade replaced it, and still calls this right after a full upgrade that
+# went through, so there is nothing left for the indicator to show.
+nixos-shell -q nixos.system-update clear

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "sky.lofi",
+  "name": "Lofi Focus",
+  "version": "1.1.1",
+  "author": "OBJLAKO",
+  "license": "MIT",
+  "description": "Chill radio, background voices and nature sounds. Your focus space, one click away.",
+  "keywords": [
+    "lofi",
+    "radio",
+    "talk",
+    "news",
+    "atc",
+    "ambient",
+    "stream"
+  ],
+  "kinds": [
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Lofi Focus",
+    "description": "Chill radio, background voices and nature sounds. Your focus space, one click away.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

@@ -1,0 +1,6 @@
+{"username": "friend", "fullname": "Друг", "hostname": "friend-pc", "autoLoginUser": "friend",
+ "locationRegion": "Europe", "locationZone": "Berlin", "localeConf": {"LANG": "ru_RU.UTF-8/UTF-8"},
+ "keyboardLayout": "ru", "packagechooser_desktop": "kde", "packagechooser_kdelook": "win11",
+ "packagechooser_kernel": "zen", "packagechooser_kernelbuild": "ready", "packagechooser_gpu": "auto",
+ "packagechooser_player": "soundcloud", "packagechooser_extras": "gaming", "packagechooser_system": "",
+ "packagechooser_security": ""}

@@ -1,0 +1,13 @@
+// Windows 11: панель снизу, «Пуск» и закреплённые значки по центру, справа трей, часы, «Свернуть всё».
+var panel = new Panel;
+panel.location = "bottom";
+panel.height = 48;
+panel.lengthMode = "fill";
+panel.floating = false;
+panel.hiding = "none";
+panel.addWidget("org.kde.plasma.panelspacer");
+addStart(panel);
+addTasks(panel);
+panel.addWidget("org.kde.plasma.panelspacer");
+addTrayClockDesktop(panel);
+setupDesktops("@wallpaper11@");

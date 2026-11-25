@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "nextagg.bar",
+  "name": "My Bar",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Status bar with widgets",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  },
+  "nixos": {
+    "clonedFrom": "nixos.bar"
+  }
+}

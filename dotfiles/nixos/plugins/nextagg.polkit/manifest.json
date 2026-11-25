@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "nextagg.polkit",
+  "name": "My polkit agent",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Theme-aware authentication dialog for privileged actions.",
+  "nixos": {
+    "capabilities": [
+      "authentication"
+    ],
+    "clonedFrom": "nixos.polkit"
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "PolkitAgent.qml"
+  }
+}

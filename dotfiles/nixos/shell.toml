@@ -1,0 +1,24 @@
+[font]
+base-size = 12
+
+# NixOS menu (and clipboard/emoji pickers) in the bar's mechabar palette
+# (Catppuccin Mocha), independent of the active theme.
+[menu]
+background                = "#11111b"
+background-alpha          = 1.0
+text                      = "#cdd6f4"
+border                    = "#b4befe"
+border-alpha              = 0.5
+scrim                     = "#11111b"
+scrim-alpha               = 0.5
+selected-background       = "#313244"
+selected-background-alpha = 1.0
+selected-text             = "#b4befe"
+selected-border           = "#b4befe"
+selected-border-alpha     = 0.0
+
+# Notifications framed in the same lavender as the window border and bar.
+[notifications]
+border           = "#b4befe"
+border-alpha     = 1.0
+countdown        = "#b4befe"

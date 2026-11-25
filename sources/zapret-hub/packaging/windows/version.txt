@@ -1,0 +1,12 @@
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers=(1,0,0,0), prodvers=(1,0,0,0)),
+  kids=[
+    StringFileInfo([StringTable('041904B0', [
+      StringStruct('CompanyName', 'Zapret Hub'),
+      StringStruct('FileDescription', 'Zapret Hub — обход блокировок Discord, YouTube и Telegram'),
+      StringStruct('FileVersion', '1.0.0'),
+      StringStruct('ProductName', 'Zapret Hub'),
+      StringStruct('ProductVersion', '1.0.0')])]),
+    VarFileInfo([VarStruct('Translation', [1049, 1200])])
+  ]
+)

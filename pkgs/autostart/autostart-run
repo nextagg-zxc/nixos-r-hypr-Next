@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# autostart-run <задержка-сек> <имя|0> -- <команда…>
+# Запуск записи автозапуска: ждёт задержку, запускает команду. Если имя не 0 — прячет НОВЫЕ окна
+# процессов своего cgroup (у каждой записи XDG autostart свой юнит app-…@autostart.service, поэтому
+# окна лаунчеров вроде Discord/Steam, открытые потомками, тоже наши): Hyprland — в special:<имя>,
+# KDE (XDG_CURRENT_DESKTOP содержит KDE) — свернуть через kdotool. Окна ждём AUTOSTART_RUN_WAIT с (60),
+# каждое прячем один раз, потом ждём саму команду и выходим с её кодом.
+
+usage() { echo "usage: autostart-run <задержка-сек> <имя|0> -- <команда…>" >&2; exit 2; }
+[ $# -ge 4 ] || usage
+delay=$1 name=$2
+[[ $delay =~ ^[0-9]+$ ]] && [ -n "$name" ] && [ "$3" = -- ] || usage
+shift 3
+
+sleep "$delay"
+[ "$name" = 0 ] && exec "$@"
+
+wait_s=${AUTOSTART_RUN_WAIT:-60}
+# AUTOSTART_RUN_CGROUP — только для тестов (как будто окна в чужой cgroup, как в KDE)
+mycg=${AUTOSTART_RUN_CGROUP:-$(cat /proc/self/cgroup)}
+kde=0
+if [[ ":${XDG_CURRENT_DESKTOP:-}:" == *:KDE:* ]]; then
+  kde=1
+  # kdotool 0.3 без KDE_SESSION_VERSION=6 не работает, а службам автозапуска Plasma её не передаёт
+  export KDE_SESSION_VERSION=${KDE_SESSION_VERSION:-6}
+fi
+
+# потомок этого autostart-run? (KDE переносит процессы окон в свои app-*.scope, а родство остаётся)
+descendant() {
+  local p=$1 n=0
+  while [ "$p" -gt 1 ] 2>/dev/null && [ $n -lt 64 ]; do
+    [ "$p" = "$$" ] && return 0
+    p=$(sed 's/.*) //' "/proc/$p/stat" 2>/dev/null | awk '{print $2}')
+    [ -n "$p" ] || return 1
+    n=$((n + 1))
+  done
+  return 1
+}
+
+# своё окно: процесс в нашей cgroup (Hyprland/uwsm), наш потомок или класс окна = имя записи
+ours() {
+  local pid=$1 class=${2,,}
+  { [[ $pid =~ ^[0-9]+$ ]] && { [ "$(cat "/proc/$pid/cgroup" 2>/dev/null)" = "$mycg" ] || descendant "$pid"; }; } ||
+    [ "$class" = "${name,,}" ]
+}
+
+# «<окно> <pid> <класс>» для всех окон сессии
+windows() {
+  local id
+  if [ "$kde" = 1 ]; then
+    for id in $(kdotool search '.*' 2>>"$errlog"); do
+      echo "$id $(kdotool getwindowpid "$id" 2>/dev/null) $(kdotool getwindowclassname "$id" 2>/dev/null)"
+    done
+  else
+    hyprctl clients -j 2>/dev/null | jq -r '.[] | "\(.address) \(.pid) \(.class)"'
+  fi
+}
+
+hide() {
+  if [ "$kde" = 1 ]; then
+    kdotool windowminimize "$1" >/dev/null 2>>"$errlog"
+  else
+    hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:$name\", window = \"address:$1\", follow = false })" >/dev/null
+  fi
+}
+
+# ошибки kdotool/hyprctl — один раз в журнал службы (иначе скрытие молча не работает)
+errlog=$(mktemp)
+trap 'sort -u "$errlog" | head -5 >&2; rm -f "$errlog"' EXIT
+declare -A seen
+while read -r id _; do [ -n "$id" ] && seen[$id]=1; done < <(windows)
+
+"$@" &
+child=$!
+
+end=$((SECONDS + wait_s))
+while [ "$SECONDS" -lt "$end" ]; do
+  sleep 0.5
+  while read -r id pid class; do
+    [ -n "$id" ] && [ -z "${seen[$id]:-}" ] || continue
+    seen[$id]=1
+    ours "$pid" "$class" && hide "$id"
+  done < <(windows)
+done
+
+wait "$child"

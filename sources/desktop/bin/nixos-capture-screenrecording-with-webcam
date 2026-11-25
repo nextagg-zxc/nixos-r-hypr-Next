@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# nixos:summary=Pick a webcam and start a screen recording with it
+# nixos:examples=nixos capture screenrecording-with-webcam
+
+mapfile -t devices < <(nixos-capture-webcam-list)
+if (( ${#devices[@]} == 0 )); then
+  nixos-notification-send "$(nixos-i18n capture.noWebcam)" -u critical -t 3000
+  exit 1
+fi
+
+if (( ${#devices[@]} == 1 )); then
+  device="${devices[0]%%[[:space:]]*}"
+else
+  selection=$(nixos-menu-select "$(nixos-i18n capture.selectWebcam)" "${devices[@]}" -- --width 520 --maxheight 520) || exit 1
+  device="${selection%%[[:space:]]*}"
+fi
+
+exec nixos-capture-screenrecording \
+  --with-desktop-audio --with-microphone-audio \
+  --with-webcam --webcam-device="$device"

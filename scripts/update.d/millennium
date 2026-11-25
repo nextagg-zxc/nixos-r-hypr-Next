@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Millennium (плагины Steam) — последний релиз с GitHub.
+exec "$(dirname "$0")/../../pkgs/millennium/update.sh"

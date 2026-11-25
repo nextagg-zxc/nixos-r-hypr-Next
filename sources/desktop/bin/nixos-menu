@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# nixos:summary=Control the NixOS menu (toggle / summon / close / refresh)
+# nixos:args=[toggle|summon|close|refresh|ping] [route]
+# nixos:examples=nixos menu | nixos menu toggle system | nixos menu summon appearance.theme | nixos menu refresh
+
+# Thin wrapper around the standard plugin IPC surface. The menu is the
+# first-party `nixos.menu` plugin; routes are passed as JSON payload.
+
+set -euo pipefail
+
+verb="${1-toggle}"
+route="${2-root}"
+
+menu_payload() {
+  jq -nc --arg menu "$1" '{ menu: $menu }'
+}
+
+case "$verb" in
+  toggle)
+    exec nixos-shell shell toggle nixos.menu "$(menu_payload "$route")"
+    ;;
+  summon)
+    exec nixos-shell shell summon nixos.menu "$(menu_payload "$route")"
+    ;;
+  close)
+    exec nixos-shell shell hide nixos.menu
+    ;;
+  refresh | ping)
+    exec nixos-shell shell call nixos.menu "$verb" "{}"
+    ;;
+  -h | --help | help)
+    cat <<USAGE
+Usage: nixos menu [verb] [route]
+
+Verbs:
+  toggle [route]   Open the menu at <route>, or close it if already open. Default verb.
+  summon [route]   Always open the menu (no close-if-visible toggle).
+  close            Close the menu if it is visible.
+  refresh          Re-parse the menu JSONC files.
+  ping             Health check.
+
+Route is an item id (e.g. setup.power) or alias (e.g. power). Defaults to
+"root", which opens the top-level menu.
+USAGE
+    exit 0
+    ;;
+  *)
+    echo "nixos-menu: unknown verb '$verb'. Try 'nixos menu --help'." >&2
+    exit 2
+    ;;
+esac

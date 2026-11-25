@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "nixos.polkit",
+  "name": "Polkit Agent",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Theme-aware authentication dialog for privileged actions.",
+  "nixos": {
+    "capabilities": [
+      "authentication"
+    ]
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "PolkitAgent.qml"
+  }
+}

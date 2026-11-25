@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# nixos:summary=Open a config file in the user's editor and surface a toast
+# nixos:args=<path>
+# nixos:examples=nixos launch config-editor ~/.config/hypr/hyprland.lua
+
+path="${1-}"
+
+if [[ -z $path ]]; then
+  echo "Usage: nixos-launch-config-editor <path>" >&2
+  exit 1
+fi
+
+nixos-notification-send -u low "$(nixos-i18n config.editing)" "$path"
+exec nixos-launch-editor "$path"

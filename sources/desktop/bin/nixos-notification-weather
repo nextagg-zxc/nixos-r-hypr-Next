@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Toggle the current weather panel
+
+nixos-shell shell toggle nixos.weather

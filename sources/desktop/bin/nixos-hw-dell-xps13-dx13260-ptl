@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# nixos:summary=Match the Dell XPS 13 DX13260 with an Intel Panther Lake GPU.
+
+nixos-hw-match "DX13260" && nixos-hw-intel-ptl

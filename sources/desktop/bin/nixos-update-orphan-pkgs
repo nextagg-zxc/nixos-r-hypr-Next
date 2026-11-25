@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# nixos:summary=Review and optionally remove orphaned system packages after updates
+# nixos:args=[-y]
+# nixos:examples=nixos update orphan-pkgs | nixos update orphan-pkgs -y
+# nixos:requires-sudo=true
+
+set -e
+
+mapfile -t orphans < <(pacman -Qtdq 2>/dev/null || true)
+(( ${#orphans[@]} )) || exit 0
+
+echo -e "\e[32m\nOrphan system packages\e[0m"
+printf '  %s\n' "${orphans[@]}"
+echo
+
+if [[ ${1:-} != "-y" && ( ! -t 0 || ! -t 1 ) ]]; then
+  echo "${#orphans[@]} orphaned package(s) found. Re-run nixos-update-orphan-pkgs in a terminal to review/remove them."
+  echo
+  exit 0
+fi
+
+if [[ ${1:-} != "-y" ]] && ! gum confirm --default=false --affirmative "$(nixos-i18n common.yes)" --negative "$(nixos-i18n common.no)" "$(nixos-i18n --count "${#orphans[@]}" update.removeOrphans "${#orphans[@]}")"; then
+  echo "Keeping orphaned packages."
+  echo
+  exit 0
+fi
+
+echo -e "\e[32m\nRemoving orphan system packages\e[0m"
+nixos-pkg-drop "${orphans[@]}"
+echo

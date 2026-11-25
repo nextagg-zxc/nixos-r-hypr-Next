@@ -1,0 +1,8 @@
+result
+result-*
+*.qcow2
+.superpowers/
+pkgs/virt-manager-nextagg/tests/fixtures/local/
+__pycache__/
+*.pyc
+.pytest_cache/

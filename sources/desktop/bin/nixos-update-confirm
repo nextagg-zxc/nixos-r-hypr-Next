@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# nixos:summary=Prompt for confirmation before starting an update
+
+gum style --border normal --padding "1 2" \
+  "$(nixos-i18n update.ready)" \
+  "" \
+  "• $(nixos-i18n update.cannotStop)" \
+  "• $(nixos-i18n update.connectPower)" \
+  "" \
+  "$(nixos-i18n update.whatsNew "https://github.com/omacom/omarchy/releases/latest")"
+
+echo
+
+if ! gum confirm --affirmative "$(nixos-i18n common.yes)" --negative "$(nixos-i18n common.no)" "$(nixos-i18n update.continue)"; then
+  echo "Update cancelled"
+  exit 1
+fi

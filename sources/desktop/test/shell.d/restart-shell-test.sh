@@ -1,0 +1,273 @@
+#!/bin/bash
+
+set -euo pipefail
+
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
+
+test_tmp=$(mktemp -d)
+restart_pid_one=""
+restart_pid_two=""
+
+cleanup() {
+  [[ -n $restart_pid_one ]] && kill "$restart_pid_one" 2>/dev/null || true
+  [[ -n $restart_pid_two ]] && kill "$restart_pid_two" 2>/dev/null || true
+  rm -rf "$test_tmp"
+}
+trap cleanup EXIT
+
+restart_root="$test_tmp/restart-root"
+restart_bin="$restart_root/bin"
+restart_state="$test_tmp/restart-pids"
+restart_log="$test_tmp/restart.log"
+restart_env_log="$test_tmp/restart-env.log"
+dispatch_log="$test_tmp/dispatch.log"
+ipc_log="$test_tmp/ipc.log"
+runtime_dir="$test_tmp/runtime"
+mkdir -p "$restart_root/shell" "$restart_bin" "$runtime_dir"
+touch "$restart_root/shell/shell.qml"
+ln -s "$ROOT/bin/nixos-shell" "$restart_bin/nixos-shell"
+ln -s "$ROOT/bin/nixos-launch-shell" "$restart_bin/nixos-launch-shell"
+ln -s "$ROOT/bin/nixos-cmd-missing" "$restart_bin/nixos-cmd-missing"
+ln -s "$ROOT/bin/nixos-hyprland-session-locked" "$restart_bin/nixos-hyprland-session-locked"
+
+cat >"$restart_bin/qs" <<'SH'
+#!/bin/bash
+
+printf '%s\n' "$*" >>"$NIXOS_TEST_IPC_LOG"
+
+case "$*" in
+  *'shell ping')
+    [[ $* == *"-p $NIXOS_TEST_SESSION_PATH/shell"* ]] &&
+      grep -Fx '303' "$NIXOS_TEST_QS_STATE" >/dev/null &&
+      printf 'ok\n'
+    ;;
+  *'lock lock')
+    touch "$NIXOS_TEST_QS_STATE.locked"
+    printf 'ok\n'
+    ;;
+  *'lock status')
+    if [[ -f $NIXOS_TEST_QS_STATE.locked ]]; then
+      printf '{"secure": true, "requested": true}\n'
+    else
+      printf '{"secure": false, "requested": false}\n'
+    fi
+    ;;
+esac
+SH
+
+cat >"$restart_bin/quickshell" <<'SH'
+#!/bin/bash
+
+printf '%s\n' "$*" >>"$NIXOS_TEST_QS_LOG"
+
+case " $* " in
+  *' kill -p '*)
+    pid=$(head -n 1 "$NIXOS_TEST_QS_STATE")
+    [[ $pid =~ ^[0-9]+$ ]] || exit 1
+    kill "$pid" 2>/dev/null
+    while kill -0 "$pid" 2>/dev/null; do sleep 0.01; done
+    awk 'NR > 1' "$NIXOS_TEST_QS_STATE" >"$NIXOS_TEST_QS_STATE.next"
+    mv "$NIXOS_TEST_QS_STATE.next" "$NIXOS_TEST_QS_STATE"
+    ;;
+  *' -n -p '*)
+    printf '%s\n' "${NIXOS_TEST_TRANSIENT_ENV-unset}" >"$NIXOS_TEST_QS_ENV_LOG"
+    printf '303\n' >"$NIXOS_TEST_QS_STATE"
+    ;;
+esac
+SH
+
+cat >"$restart_bin/hyprctl" <<'SH'
+#!/bin/bash
+
+if [[ ${1:-} == "-j" && ${2:-} == "monitors" ]]; then
+  # Hyprland reports an active session lock as a reason the monitor cannot hand
+  # a client the whole screen, not as a workspace.
+  if [[ ${NIXOS_TEST_SESSION_LOCKED:-0} == 1 ]]; then
+    printf '[{"name":"eDP-1","solitaryBlockedBy":["WINDOWED","LOCK","CANDIDATE"]}]\n'
+  else
+    printf '[{"name":"eDP-1","solitaryBlockedBy":["WINDOWED","CANDIDATE"]}]\n'
+  fi
+elif [[ ${1:-} == "dispatch" && ${2:-} == hl.dsp.exec_cmd* ]]; then
+  printf '%s\n' "${2:-}" >>"$NIXOS_TEST_DISPATCH_LOG"
+  NIXOS_PATH="$NIXOS_TEST_SESSION_PATH" \
+    env -u NIXOS_TEST_TRANSIENT_ENV nixos-launch-shell
+  printf 'ok\n'
+elif [[ ${1:-} == "dispatch" ]]; then
+  exit 1
+fi
+SH
+
+# Keep the test hermetic where journald has no usable stream socket.
+cat >"$restart_bin/systemd-cat" <<'SH'
+#!/bin/bash
+
+while (( $# > 0 )); do
+  [[ $1 == "--" ]] && { shift; break; }
+  shift
+done
+exec "$@"
+SH
+
+cat >"$restart_bin/systemctl" <<'SH'
+#!/bin/bash
+
+if [[ ${1:-} == "--user" && ${2:-} == "show-environment" ]]; then
+  printf 'NIXOS_PATH=%s\n' "$NIXOS_TEST_SESSION_PATH"
+elif [[ ${1:-} == "--user" && ${2:-} == "try-restart" ]]; then
+  exit 0
+else
+  exit 1
+fi
+SH
+
+cat >"$restart_bin/busctl" <<'SH'
+#!/bin/bash
+if [[ -z ${NIXOS_TEST_NOTIFICATION_CHECKS:-} ]]; then
+  echo 'b false'
+else
+  checks=0
+  [[ ! -f $NIXOS_TEST_NOTIFICATION_CHECKS ]] || read -r checks <"$NIXOS_TEST_NOTIFICATION_CHECKS"
+  (( checks += 1 ))
+  printf '%s\n' "$checks" >"$NIXOS_TEST_NOTIFICATION_CHECKS"
+  # The service was running before the restart and, when asked to, never
+  # comes back afterwards.
+  if [[ ${NIXOS_TEST_NOTIFICATIONS_DIE:-0} == 1 ]]; then
+    (( checks == 1 )) && echo 'b true' || echo 'b false'
+    exit 0
+  fi
+  if (( checks == 1 || checks >= 4 )); then
+    echo 'b true'
+  else
+    echo 'b false'
+  fi
+fi
+SH
+
+chmod +x "$restart_bin/qs" "$restart_bin/quickshell" "$restart_bin/hyprctl" "$restart_bin/systemd-cat" "$restart_bin/systemctl" "$restart_bin/busctl"
+
+sleep 30 &
+restart_pid_one=$!
+sleep 30 &
+restart_pid_two=$!
+printf '%s\n%s\n' "$restart_pid_one" "$restart_pid_two" >"$restart_state"
+
+caller_root="$test_tmp/caller-root"
+mkdir -p "$caller_root/shell"
+touch "$caller_root/shell/shell.qml"
+
+PATH="$restart_bin:$PATH" \
+NIXOS_PATH="$caller_root" \
+XDG_RUNTIME_DIR="$runtime_dir" \
+NIXOS_TEST_QS_STATE="$restart_state" \
+NIXOS_TEST_QS_LOG="$restart_log" \
+NIXOS_TEST_QS_ENV_LOG="$restart_env_log" \
+NIXOS_TEST_DISPATCH_LOG="$dispatch_log" \
+NIXOS_TEST_IPC_LOG="$ipc_log" \
+NIXOS_TEST_SESSION_PATH="$restart_root" \
+NIXOS_TEST_TRANSIENT_ENV=leaked \
+NIXOS_TEST_NOTIFICATION_CHECKS="$test_tmp/notification-checks" \
+  timeout 5 "$ROOT/bin/nixos-restart-shell"
+
+if kill -0 "$restart_pid_one" 2>/dev/null; then
+  fail "restart stops the first matching shell instance"
+fi
+if kill -0 "$restart_pid_two" 2>/dev/null; then
+  fail "restart stops duplicate matching shell instances"
+fi
+wait "$restart_pid_one" 2>/dev/null || true
+wait "$restart_pid_two" 2>/dev/null || true
+restart_pid_one=""
+restart_pid_two=""
+[[ $(<"$restart_state") == 303 ]] || fail "restart leaves exactly one fresh shell instance"
+[[ $(grep -c '^-n -p ' "$restart_log") == 1 ]] || fail "restart launches one fresh shell process"
+grep -F "kill -p $restart_root/shell --any-display" "$restart_log" >/dev/null || fail "restart stops the shell from the session checkout"
+[[ $(<"$restart_env_log") == "unset" ]] || fail "restart uses the Hyprland session environment for the fresh shell"
+grep -F 'hl.dsp.exec_cmd("nixos-launch-shell")' "$dispatch_log" >/dev/null || fail "restart launches the fresh shell through Hyprland"
+grep -F "ipc -n -p $restart_root/shell call -- shell ping" "$ipc_log" >/dev/null || fail "restart checks readiness in the session checkout"
+pass "restart replaces duplicate shell instances from the session checkout"
+[[ $(<"$test_tmp/notification-checks") == 4 ]] || fail "restart waits for the existing notification service after core IPC is ready"
+pass "restart waits for notification readiness before one-time update hooks"
+
+: >"$restart_log"
+printf '303\n' >"$restart_state"
+touch "$restart_state.locked"
+
+locked_error=$(PATH="$restart_bin:$PATH" \
+  NIXOS_PATH="$restart_root" \
+  XDG_RUNTIME_DIR="$runtime_dir" \
+  NIXOS_TEST_SESSION_LOCKED=1 \
+  NIXOS_TEST_QS_STATE="$restart_state" \
+  NIXOS_TEST_QS_LOG="$restart_log" \
+  NIXOS_TEST_DISPATCH_LOG="$dispatch_log" \
+  NIXOS_TEST_IPC_LOG="$ipc_log" \
+  NIXOS_TEST_SESSION_PATH="$restart_root" \
+  "$ROOT/bin/nixos-restart-shell" 2>&1) && fail "restart refuses while the shell lock is active"
+
+[[ $locked_error == "Refusing to restart NixOS shell while the session is locked." ]] || fail "locked restart explains why it was refused" "$locked_error"
+[[ $(<"$restart_state") == 303 ]] || fail "locked restart preserves the running shell"
+[[ ! -s $restart_log ]] || fail "locked restart does not stop or launch Quickshell"
+pass "restart preserves the shell while its lock is active"
+
+# A LOCK session without an active locker — dead shell or a crash-handler
+# relaunch holding no lock — is the failsafe: restart must proceed,
+# re-acquire the session lock, and wait for it to report secure.
+sleep 30 &
+restart_pid_one=$!
+printf '%s\n' "$restart_pid_one" >"$restart_state"
+rm -f "$restart_state.locked"
+: >"$restart_log"
+: >"$ipc_log"
+
+PATH="$restart_bin:$PATH" \
+NIXOS_PATH="$restart_root" \
+XDG_RUNTIME_DIR="$runtime_dir" \
+NIXOS_TEST_SESSION_LOCKED=1 \
+NIXOS_TEST_QS_STATE="$restart_state" \
+NIXOS_TEST_QS_LOG="$restart_log" \
+NIXOS_TEST_QS_ENV_LOG="$restart_env_log" \
+NIXOS_TEST_DISPATCH_LOG="$dispatch_log" \
+NIXOS_TEST_IPC_LOG="$ipc_log" \
+NIXOS_TEST_SESSION_PATH="$restart_root" \
+  timeout 5 "$ROOT/bin/nixos-restart-shell" || fail "locked restart recovers when the lock client is dead"
+
+if kill -0 "$restart_pid_one" 2>/dev/null; then
+  fail "dead-lock recovery stops the stale shell instance"
+fi
+wait "$restart_pid_one" 2>/dev/null || true
+restart_pid_one=""
+[[ $(<"$restart_state") == 303 ]] || fail "dead-lock recovery leaves one fresh shell instance"
+grep -F "ipc -n -p $restart_root/shell call -- lock lock" "$ipc_log" >/dev/null || fail "dead-lock recovery re-acquires the session lock"
+grep -F "ipc -n -p $restart_root/shell call -- lock status" "$ipc_log" >/dev/null || fail "dead-lock recovery waits for the lock to become secure"
+pass "restart recovers a locked session whose lock client died"
+
+# Lock recovery must not wait on the notification plugin: a stranded user gets
+# the lock back even when notifications never return, and the restart then
+# reports the missing service rather than claiming success.
+sleep 30 &
+restart_pid_one=$!
+printf '%s\n' "$restart_pid_one" >"$restart_state"
+rm -f "$restart_state.locked" "$test_tmp/notification-checks"
+: >"$restart_log"
+: >"$ipc_log"
+
+if PATH="$restart_bin:$PATH" \
+  NIXOS_PATH="$restart_root" \
+  XDG_RUNTIME_DIR="$runtime_dir" \
+  NIXOS_TEST_SESSION_LOCKED=1 \
+  NIXOS_TEST_QS_STATE="$restart_state" \
+  NIXOS_TEST_QS_LOG="$restart_log" \
+  NIXOS_TEST_QS_ENV_LOG="$restart_env_log" \
+  NIXOS_TEST_DISPATCH_LOG="$dispatch_log" \
+  NIXOS_TEST_IPC_LOG="$ipc_log" \
+  NIXOS_TEST_SESSION_PATH="$restart_root" \
+  NIXOS_TEST_NOTIFICATION_CHECKS="$test_tmp/notification-checks" \
+  NIXOS_TEST_NOTIFICATIONS_DIE=1 \
+  timeout 10 "$ROOT/bin/nixos-restart-shell" >"$test_tmp/dead-notifications.out" 2>&1; then
+  fail "a restart whose notification service never returns must not report success"
+fi
+wait "$restart_pid_one" 2>/dev/null || true
+restart_pid_one=""
+grep -F "ipc -n -p $restart_root/shell call -- lock lock" "$ipc_log" >/dev/null || fail "lock recovery waited on the notification service" "$(cat "$ipc_log")"
+[[ -f $restart_state.locked ]] || fail "lock recovery did not re-secure the session without notifications"
+grep -q "notification service did not become ready" "$test_tmp/dead-notifications.out" || fail "a missing notification service is not reported" "$(cat "$test_tmp/dead-notifications.out")"
+pass "restart recovers the lock even when the notification service never returns"

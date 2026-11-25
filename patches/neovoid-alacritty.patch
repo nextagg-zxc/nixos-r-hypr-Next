@@ -1,0 +1,22 @@
+diff --git i/alacritty.toml w/alacritty.toml
+index 979c01c..7933fb3 100644
+--- i/alacritty.toml
++++ w/alacritty.toml
+@@ -28,7 +28,7 @@ background = "#333333"
+ 
+ [colors.normal]
+ black   = "#000000"
+-red     = "#FF0040"
++red     = "#CBA6F7"
+ green   = "#00BFFF"
+ yellow  = "#1E90FF"
+ blue    = "#00BFFF"
+@@ -38,7 +38,7 @@ white   = "#E0E0E0"
+ 
+ [colors.bright]
+ black   = "#1A1A1A"
+-red     = "#FF0040"
++red     = "#CBA6F7"
+ green   = "#00BFFF"
+ yellow  = "#1E90FF"
+ blue    = "#00BFFF"

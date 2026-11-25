@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# nixos:summary=Restart system time synchronization
+# nixos:requires-sudo=true
+
+echo "Updating time..."
+sudo systemctl restart systemd-timesyncd

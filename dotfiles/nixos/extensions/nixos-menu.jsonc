@@ -1,0 +1,32 @@
+{
+
+  "setup": {"icon":"󰐱","label":"Plugins","target":"setup.plugin","aliases":["plugin","plugins"],"title":"Setup"},
+
+  "learn": {"icon":"󰏗","label":"Packages","target":"packages","aliases":["packages"]},
+  "packages": {"icon":"󰏗","label":"Packages","when":"false"},
+  "packages.install": {"icon":"󰉉","label":"Install","target":"install"},
+  "packages.remove": {"icon":"󰭌","label":"Remove","target":"remove"},
+  "packages.update": {"icon":"","label":"Update","target":"update"},
+  "install": {"icon":"󰉉","label":"Install","when":"false"},
+  "remove": {"icon":"󰭌","label":"Remove","aliases":["uninstall"],"when":"false"},
+  "update": {"icon":"","label":"Update","aliases":["restart","refresh"],"when":"false"},
+
+  "trigger": {"icon":"󱁤","label":"Tools","title":"Trigger","target":"tools"},
+  "tools": {"icon":"󱁤","label":"Tools","when":"false"},
+  "tools.trigger": {"icon":"󱓞","label":"Trigger","target":"trigger"},
+  "tools.setup": {"icon":"","label":"Setup","target":"setup"},
+
+  "system": {"icon":"","label":"System","aliases":["power-menu"],"when":"false"},
+
+  "claudeapps": {"icon":"󰚩","label":"Программы","aliases":["programs","apps","программы"]},
+  "claudeapps.help": {"icon":"󰋖","label":"Позвать на помощь","description":"Друг подключится к экрану (RustDesk)","aliases":["help","помощь","rustdesk"],"action":"uwsm-app -- nixos-tool help","when":"command -v nixos-tool"},
+  "claudeapps.report": {"icon":"󰃤","label":"Сообщить о проблеме","description":"Журналы одним файлом для помощника","aliases":["report","bug","проблема"],"action":"uwsm-app -- nixos-tool report","when":"command -v nixos-tool"},
+  "claudeapps.update": {"icon":"󰚰","label":"Обновление системы","description":"Обновить или откатить прежнюю версию","aliases":["update","обновление","откат"],"action":"uwsm-app -- nixos-settings --section update","when":"command -v nixos-settings"},
+  "claudeapps.store": {"icon":"󰄐","label":"Магазин","description":"Поиск и установка программ","aliases":["store","магазин","install","установить"],"action":"uwsm-app -- nixos-store","when":"command -v nixos-store"},
+  "claudeapps.settings": {"icon":"󰒓","label":"Настройка системы","description":"Ядро, защита, Secure Boot, Windows в меню загрузки","aliases":["settings","настройки","secure boot"],"action":"uwsm-app -- nixos-settings","when":"command -v nixos-settings"},
+  "claudeapps.zaprethub": {"icon":"󰒃","label":"Zapret Hub","description":"Discord, YouTube и прокси для Telegram","aliases":["zapret-hub","zaprethub","hub"],"action":"uwsm-app -- zapret-hub","when":"command -v zapret-hub"},
+  "claudeapps.soundcloud": {"icon":"󰓀","label":"SoundCloud","description":"SoundCloud окном, управление из меню Win+B","aliases":["soundcloud","музыка","music","плеер"],"action":"uwsm-app -- soundcloud-app","when":"command -v soundcloud-app"},
+  "claudeapps.autostart": {"icon":"󱓞","label":"Автозапуск","description":"Что запускается при входе: вкл/выкл, скрыто, задержка","aliases":["autostart","startup","автозапуск"],"action":"uwsm-app -- autostart","when":"command -v autostart"},
+
+  "power": {"icon":"","label":"System","target":"system"},
+}

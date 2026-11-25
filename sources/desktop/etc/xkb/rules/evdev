@@ -1,0 +1,6 @@
+// NixOS's own XKB option. libxkbcommon reads /etc/xkb before the system
+// rules, which supply everything else.
+! include %S/evdev
+
+! option = symbols
+  nixos:shift_caps_compose = +nixos(shift_caps_compose)

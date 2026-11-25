@@ -1,0 +1,4 @@
+*.tmp
+*.log
+.DS_Store
+REDDIT_POST.md

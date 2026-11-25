@@ -1,0 +1,6 @@
+#!/bin/bash
+# nixos:summary=Launch the clipboard manager
+# nixos:group=menu
+# nixos:examples=nixos menu clipboard
+
+nixos-shell shell toggle nixos.clipboard

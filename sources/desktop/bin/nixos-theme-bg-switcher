@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# nixos:summary=Open the NixOS background switcher
+# nixos:group=theme
+# nixos:name=bg-switcher
+# nixos:aliases=nixos background
+
+theme_name=$(cat "$HOME/.local/state/nixos/current/theme.name" 2>/dev/null)
+current_background=$(readlink -f "$HOME/.local/state/nixos/current/background" 2>/dev/null)
+
+nixos-menu-images \
+  --selected "$current_background" \
+  "$HOME/.local/state/nixos/current/theme/backgrounds" \
+  "$HOME/.config/nixos/backgrounds/$theme_name"

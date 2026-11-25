@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# nixos:summary=Toggle mirroring theme changes to and from your herdr machines
+
+nixos-toggle herdr-theme-sync
+
+if nixos-toggle-enabled herdr-theme-sync; then
+  nixos-notification-send -g 󰸌 "$(nixos-i18n themeSync.enabled)"
+else
+  nixos-notification-send -g 󰸌 "$(nixos-i18n themeSync.disabled)"
+fi

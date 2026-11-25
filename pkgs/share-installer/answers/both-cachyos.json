@@ -1,0 +1,6 @@
+{"username": "friend", "fullname": "Друг", "hostname": "friend-pc", "autoLoginUser": "friend",
+ "locationRegion": "Europe", "locationZone": "Moscow", "localeConf": {"LANG": "ru_RU.UTF-8/UTF-8"},
+ "keyboardLayout": "ru", "packagechooser_desktop": "both", "packagechooser_kdelook": "win10",
+ "packagechooser_kernel": "cachyos", "packagechooser_kernelbuild": "ready", "packagechooser_gpu": "auto",
+ "packagechooser_player": "spotify", "packagechooser_extras": "gaming,obs,telegram,vr", "packagechooser_system": "",
+ "packagechooser_security": ""}

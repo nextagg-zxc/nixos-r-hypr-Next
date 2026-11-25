@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+# NixOS ships no default agent, so invite once rather than picking one. An
+# agent already chosen means the invitation has nothing to offer.
+if [[ -z $(nixos-default-agent) ]] && nixos-done ensure agent-setup-invitation; then
+  nixos-notification-send -u critical -g 󰚩 "$(nixos-i18n firstRun.agentTitle)" \
+    "$(nixos-i18n firstRun.agentBody)" \
+    --exec nixos menu summon setup.default.agent
+fi

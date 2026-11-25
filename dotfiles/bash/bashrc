@@ -1,0 +1,100 @@
+# NixOS environment (NIXOS_PATH + PATH), needed even for non-interactive shells
+[[ -r /usr/share/nixos/default/bash/env-bootstrap ]] && source /usr/share/nixos/default/bash/env-bootstrap
+
+# If not running interactively, don't do anything else (leave this above the rc source)
+[[ $- != *i* ]] && return
+
+
+# All the default NixOS aliases and functions
+# (don't mess with these directly, just overwrite them here!)
+source "$NIXOS_PATH/default/bash/rc"
+
+
+# >>> terminal niceties >>>
+# fastfetch once per terminal window (not in nested shells, SSH or VS Code)
+if [[ -z ${FASTFETCH_SHOWN-} && -z ${SSH_CONNECTION-} && ${TERM_PROGRAM-} != vscode ]] && command -v fastfetch &>/dev/null; then
+  export FASTFETCH_SHOWN=1
+  # logo by window width: narrow = none, medium = small NixOS, wide = full NixOS
+  __cols=$(tput cols 2>/dev/null || echo 120)
+  if (( __cols < 70 )); then fastfetch --logo none
+  elif (( __cols < 110 )); then fastfetch --logo nixos_small
+  else fastfetch; fi
+  unset __cols
+fi
+
+# path correction: fix typos in cd and directory completion, cd by typing a directory name
+shopt -s cdspell dirspell autocd
+
+# atuin: searchable history on Ctrl+R (Up arrow stays normal)
+command -v atuin &>/dev/null && eval "$(atuin init bash --disable-up-arrow)"
+
+# pay-respects: command correction - `f` after a failed command, Ctrl+X Ctrl+X fixes the current line,
+# a mistyped command name suggests a fix right away
+command -v pay-respects &>/dev/null && eval "$(pay-respects bash --alias f)"
+
+# yazi: `y` opens the file manager and cds into the last directory on exit
+y() {
+  local tmp cwd
+  tmp="$(mktemp -t yazi-cwd.XXXXXX)"
+  yazi "$@" --cwd-file="$tmp"
+  cwd="$(<"$tmp")"
+  [[ -n $cwd && $cwd != "$PWD" ]] && builtin cd -- "$cwd"
+  rm -f -- "$tmp"
+}
+
+# <<< terminal niceties <<<
+
+# >>> terminal command suggestions >>>
+# Lightweight history suggestions; run command/file completion only on Tab.
+# ble.sh грузится ПОСЛЕ первого приглашения (24.11): его загрузка ~0,37 с задерживала терминал.
+# Перед первым приглашением шлём терминалу запрос состояния (ESC[5n); ответ ESC[0n приходит
+# во ввод, когда приглашение уже на экране, и по bind -x загружает ble.sh. Если строку уже
+# начали набирать — не трогаем её (ble-attach сбросил бы набранное), подключаемся на следующем
+# приглашении. Терминал без ответа на ESC[5n — просто без подсказок.
+if [[ $- == *i* && ${TERM-} != dumb && -r $HOME/.local/share/blesh/ble.sh && ! ${BLE_VERSION-} ]]; then
+  __nextagg_ble_load() {
+    if [[ -n ${READLINE_LINE-} ]]; then unset __nextagg_ble_kicked; return; fi
+    # bash стирает строку приглашения на время bind -x (а загрузка ~0,3 с) — рисуем её сразу
+    # заново, ble потом нарисует то же самое поверх; без мигания. \001/\002 — метки \[ \].
+    local p=${PS1@P}
+    p=${p//$'\001'/}; p=${p//$'\002'/}
+    printf '%s' "${p##*$'\n'}" >/dev/tty
+    bind -r '\e[0n' 2>/dev/null
+    source -- "$HOME/.local/share/blesh/ble.sh" --attach=none
+    if [[ ${BLE_VERSION-} ]]; then
+      bleopt complete_auto_complete=1
+      bleopt complete_auto_delay=350
+      bleopt complete_auto_complete_opts=syntax-disabled
+      bleopt complete_auto_menu=
+      bleopt highlight_syntax=
+      bleopt highlight_filename=
+      bleopt highlight_variable=
+      bleopt complete_menu_complete=1
+      bleopt complete_menu_filter=1
+      # без автопроверки ширины символов при подключении: она печатает пробные глифы через
+      # \r\e[K и на миг стирает приглашение; west = ширины Ghostty (неоднозначные узкие)
+      bleopt char_width_mode=west
+      bleopt char_width_version=16.0
+      ble-face -s auto_complete 'fg=242'
+      ble-attach
+    fi
+  }
+  bind -x '"\e[0n": __nextagg_ble_load'
+  # Запрос шлёт фоновый процесс через 50 мс, когда readline уже выключил эхо (иначе ответ
+  # терминала виден как «^[[0n»); не в PS1 — readline перерисовывает приглашение и повторил бы
+  # запрос. Двойной fork — без сообщения «[1] PID». Последним в PROMPT_COMMAND: после
+  # starship_precmd, который первым читает $? (код прошлой команды не должен перетираться).
+  __nextagg_ble_kick() {
+    local status=$?
+    if [[ ! ${__nextagg_ble_kicked-} && ! ${BLE_VERSION-} ]]; then
+      __nextagg_ble_kicked=1
+      ( (sleep 0.05; printf '\e[5n' >/dev/tty) & ) 2>/dev/null
+    fi
+    return $status
+  }
+  PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}__nextagg_ble_kick"
+fi
+# <<< terminal command suggestions <<<
+
+# неизвестная команда → «есть в программе X, установите через Магазин»
+command -v nixos-store-hint &>/dev/null && command_not_found_handle() { nixos-store-hint "$1"; }

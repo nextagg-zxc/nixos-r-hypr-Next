@@ -1,0 +1,179 @@
+#!/bin/bash
+
+# nixos:summary=Set the NixOS package channel.
+# nixos:args=<stable|rc|edge|dev>
+# nixos:requires-sudo=true
+
+set -euo pipefail
+
+# Exit on a signal even while a child survives it, so the switch never runs on.
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+usage() { echo "Usage: nixos-channel-set [stable|rc|edge|dev]"; }
+fail() { echo "Error: $*" >&2; exit 1; }
+
+confirm_dev() {
+  cat <<'WARNING'
+
+The dev channel links NixOS directly to a checkout of the source in ~/nixos.
+It's exclusively intended for developers working on NixOS itself.
+
+WARNING
+
+  gum confirm --default=false "Switch to dev channel?"
+}
+
+validate_dev_checkout() {
+  local checkout="$1"
+
+  if [[ -e $checkout && ! -d $checkout/.git ]]; then
+    fail "$checkout already exists and is not a git checkout."
+  fi
+
+  if [[ -d $checkout/.git && ( ! -d $checkout/bin || ! -d $checkout/default || ! -d $checkout/shell ) ]]; then
+    fail "$checkout is a git checkout, but it does not look like NixOS."
+  fi
+}
+
+# The dev channel refreshes pacman with the checkout's own tools. A checkout
+# without this machine's region profile would silently drop its repositories.
+validate_dev_region() {
+  local checkout="$1" region_file="${NIXOS_REGION_FILE:-/etc/nixos/region}" region=global
+
+  [[ -f $region_file ]] && region=$(<"$region_file")
+  [[ $region == "global" ]] && return 0
+
+  # The refresh after linking needs a runnable helper and every fragment, not
+  # just a directory with the region's name: dev refreshes edge, and leaving
+  # dev later refreshes stable or rc with this checkout's tools.
+  local profile="$checkout/default/regions/$region/pacman" fragment supported=true
+  [[ -x $checkout/bin/nixos-apply-pacman ]] || supported=false
+  for fragment in nixos-{stable,rc,edge}.prepend mirrorlist-{stable,rc,edge}.prepend; do
+    [[ -r $profile/$fragment ]] || supported=false
+  done
+  if ! $supported; then
+    fail "$checkout does not support the '$region' region, so switching would drop its package repositories. Check out a branch with default/regions/$region, or remove $region_file to use global defaults."
+  fi
+}
+
+link_dev_checkout() {
+  local checkout="$1" required
+  # Skip file contents only old history holds, like retired theme videos; git
+  # fetches whatever a checkout needs when it needs it.
+  [[ -d $checkout/.git ]] || git clone --filter=blob:none https://github.com/omacom/omarchy.git "$checkout"
+  validate_dev_region "$checkout"
+
+  # Check the destination before changing /etc/nixos.conf or sudo's path.
+  # An existing checkout is not pulled automatically and may be too old.
+  for required in bin/nixos-update bin/nixos-refresh-pacman; do
+    if [[ ! -f $checkout/$required || ! -x $checkout/$required ]]; then
+      fail "Update the checkout before switching to dev; missing required update support in $required."
+    fi
+  done
+
+  # The checkout's own channel refresh runs next, from its own templates.
+  if [[ ! -f $checkout/${templates#"$NIXOS_PATH"/}/pacman-$pacman_channel.conf ||
+    ! -f $checkout/${templates#"$NIXOS_PATH"/}/mirrorlist-$pacman_channel ]]; then
+    fail "Update the checkout before switching to dev; it has no $pacman_channel templates for $platform."
+  fi
+
+  # On aarch64 one from before it had platform templates would replace this
+  # machine's repositories with x86's.
+  if [[ $platform != "x86" ]]; then
+    for required in bin/nixos-hw-platform install/helpers/pacman.sh; do
+      if [[ ! -f $checkout/$required || ! -r $checkout/$required ||
+        ( $required == "bin/nixos-hw-platform" && ! -x $checkout/$required ) ]]; then
+        fail "Update the checkout before switching to dev; on $platform it needs $required for this machine's repositories."
+      fi
+    done
+  fi
+
+  nixos-dev-link "$checkout" --no-reboot
+}
+
+(( $# > 0 )) || { usage; exit 1; }
+
+dev_checkout=""
+channel="$1"
+leaving_dev=0
+
+case "$channel" in
+  stable)
+    pacman_channel=stable
+    packages=(nixos nixos-settings)
+    ;;
+  rc)
+    pacman_channel=rc
+    packages=(nixos nixos-settings)
+    ;;
+  edge)
+    pacman_channel=edge
+    packages=(nixos-dev nixos-settings-dev)
+    ;;
+  dev)
+    pacman_channel=edge
+    packages=(nixos-dev nixos-settings-dev)
+    ;;
+  *)
+    echo "Unknown channel: $channel" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+# A channel this machine's platform has no templates for is refused before
+# anything changes (install/helpers/pacman.sh).
+source "$NIXOS_PATH/install/helpers/pacman.sh"
+platform=$(nixos-hw-platform) || fail "Cannot tell this machine's platform; nothing changed."
+templates=$(nixos_pacman_templates "$platform") || exit 1
+[[ -f $templates/pacman-$pacman_channel.conf && -f $templates/mirrorlist-$pacman_channel ]] ||
+  fail "NixOS has no $pacman_channel channel for $platform; nothing changed."
+
+if [[ $channel == "dev" ]]; then
+  confirm_dev || { echo "Cancelled."; exit 0; }
+  dev_checkout="$HOME/nixos"
+  validate_dev_checkout "$dev_checkout"
+fi
+
+# A failure past this point leaves the channel switch half-applied, so say how
+# to pick it back up rather than dying silently under set -e.
+trap 'echo -e "\nThe channel switch did not complete. Review the error above, then rerun: nixos-channel-set '"$channel"'" >&2' ERR
+
+if [[ -z $dev_checkout && $NIXOS_PATH != "/usr/share/nixos" ]]; then
+  leaving_dev=1
+fi
+
+if [[ -n $dev_checkout ]]; then
+  link_dev_checkout "$dev_checkout"
+  export NIXOS_PATH="$dev_checkout"
+  export PATH="$NIXOS_PATH/bin:$PATH"
+  nixos-state set reboot-required
+fi
+
+nixos-refresh-pacman "$pacman_channel"
+# The refresh can have installed an older release without this tree's helpers,
+# so the swap calls pacman itself. --ask 4 accepts nixos <-> nixos-dev
+# replacement prompts without file overwrites.
+sudo env NIXOS_UPDATE_PACMAN=1 pacman -S --needed --noconfirm --ask 4 "${packages[@]}"
+
+if [[ -z $dev_checkout ]]; then
+  nixos-dev-unlink --no-reboot
+
+  if (( leaving_dev )); then
+    # The packaged commands must win over the unlinked checkout's from here on.
+    IFS=: read -r -a entries <<<"$PATH"
+    path=""
+    for entry in "${entries[@]}"; do
+      [[ ${entry%/} == "$NIXOS_PATH/bin" ]] || path+="${path:+:}$entry"
+    done
+    export PATH=$path
+    nixos-state set reboot-required
+  fi
+  export NIXOS_PATH=/usr/share/nixos
+fi
+
+# The switch was already confirmed, but the user is still here: keep the
+# reboot prompt interactive.
+NIXOS_UPDATE_UNATTENDED=0 "$NIXOS_PATH/bin/nixos-update" -y

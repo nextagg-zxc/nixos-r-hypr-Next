@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# nixos:summary=Install Heroic Games Launcher (Epic, GOG, Amazon Prime Gaming) with graphics drivers.
+# nixos:requires-sudo=true
+
+set -e
+
+echo "Installing Heroic Games Launcher..."
+nixos-pkg-add heroic-games-launcher-bin
+nixos-install-gaming-gpu-lib32
+
+setsid uwsm-app -- gtk-launch heroic >/dev/null 2>&1 &

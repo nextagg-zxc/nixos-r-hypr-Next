@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# nixos:summary=Wake displays and restore brightness after idle
+# nixos:group=system
+# nixos:name=wake
+# nixos:examples=nixos system wake
+
+nixos-brightness-display on
+nixos-brightness-keyboard restore
+nixos-hyprland-monitor-clamshell >/dev/null 2>&1 || true

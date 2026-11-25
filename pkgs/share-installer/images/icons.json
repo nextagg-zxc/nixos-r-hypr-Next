@@ -1,0 +1,47 @@
+{
+ "kernel": {
+  "cachyos": "cpu-x",
+  "zen": "utilities-system-monitor",
+  "linux": "tux"
+ },
+ "kernelbuild": {
+  "ready": "preferences-system",
+  "native": "applications-development"
+ },
+ "gpu": {
+  "auto": "preferences-desktop-display",
+  "mesa": "amd",
+  "nvidia": "nvidia-settings",
+  "nvidia-legacy": "nvidia-settings"
+ },
+ "player": {
+  "spotify": "spotify-client",
+  "soundcloud": "soundcloud"
+ },
+ "extras": {
+  "gaming": "steam",
+  "obs": "com.obsproject.Studio",
+  "telegram": "telegram",
+  "vr": "steamvr",
+  "": "applications-other"
+ },
+ "system": {
+  "noVirtualization": "virt-manager",
+  "noIommu": "hardinfo",
+  "mitigationsOff": "security-low",
+  "": "preferences-system"
+ },
+ "security": {
+  "secureboot": "security-high",
+  "": "security-medium"
+ },
+ "desktop": {
+  "both": "@both.jpg",
+  "kde": "@kde-win11.jpg",
+  "hyprland": "@hyprland.jpg"
+ },
+ "kdelook": {
+  "win11": "@kde-win11.jpg",
+  "win10": "@kde-win10.jpg"
+ }
+}

@@ -1,0 +1,444 @@
+# File layout
+
+How `nixos/` is organized and where everything ends up on an installed
+system.
+
+## Mental model
+
+Two Arch packages are built from this one repo (PKGBUILDs live in the
+separate `nixos-pkgs` repository, under `pkgbuilds/`):
+
+- **`nixos`** — runtime binaries (`bin/`, including `bin/nixos-dev-*`),
+  install/finalize scripts (`install/`), migrations, themes, and the
+  Quickshell desktop (`shell/`). Depends on `nixos-settings`.
+- **`nixos-settings`** — everything that has to be on the target *before*
+  the nixos package installs (specifically before `useradd -m` and the
+  limine bootloader install): all `/etc/skel/**`, `/etc/` drop-ins,
+  package-owned system files under `/usr/share` and `/usr/lib`, fonts,
+  plymouth theme, sddm theme, branding, plus the limine/snapper configs
+  (mkinitcpio hooks, limine-entry-tool drop-ins, snapper template, the
+  `default/limine/` and `default/snapper/` trees, and the boot/snapshot
+  story end-to-end). Also ships the three debug binaries
+  (`nixos-debug`, `nixos-debug-idle`, `nixos-upload-log`) needed by
+  the live ISO env.
+
+Two other packages live in `nixos-pkgs` but stand alone:
+`nixos-keyring` (GPG keys for pacman) and `nixos-nvim` (the Neovim
+setup; independently seeds `/etc/skel`).
+
+Some trees ship in neither package and exist only in the repo: `manual/`
+(user manual chapters), `agents/skills/` (contributor task guides), `docs/`,
+`test/`, and `plans/`.
+
+Three layers populate `$HOME`:
+
+1. **Seed** — `nixos-settings` ships static defaults to `/etc/skel/`.
+   Arch's `useradd -m` copies that tree into a new user's `$HOME` at user
+   creation. This is the only mechanism that touches a brand-new user's home
+   for these files.
+2. **Finalize** — `nixos-provision-user` (routed as `nixos finalize
+   user`) runs once per user and handles the things `/etc/skel` can't do
+   because they need `$HOME` expansion, the live `$NIXOS_PATH`, or runtime
+   detection of system state.
+3. **Resync** — `nixos-reinstall-configs` is the explicit, destructive
+   command for an existing user to clobber their configs back to shipped
+   defaults.
+
+`/etc/skel` only fires at user creation. Existing users picking up new
+defaults must use the resync command.
+
+Deferred-provisioning installs (`nixos-apply-system --defer-provisioning`)
+create no user at all: the ISO leaves `/var/lib/nixos/provisioning/pending`
+behind, which arms `nixos-provision-owner.service` (shipped from
+`install/provisioning/`, alongside the factory-reset finish unit and
+`setup-form.sh`). On first boot `bin/nixos-provision-owner` creates the
+user on tty1 and runs the finalize step itself.
+
+On an encrypted install `nixos-provision-owner` then re-keys LUKS from the staged install key to the owner's password through `install/provisioning/luks-rekey.sh`, which journals each step (phase and slot numbers, never keys) in `/var/lib/nixos/provisioning/luks-rekey.state` so an interrupted first boot resumes. Setup finishes only once the staged key opens nothing, and removes the journal with `pending`, so a retry after the staged key is retired must use the password the disk holds. On a platform whose boot package owns the boot chain, the check before the owner form, the boot-time unlock and the record of the kept key slot go through `nixos-lifecycle-dispatch`. See [lifecycle-dispatch.md](lifecycle-dispatch.md).
+
+`nixos-drive-password` reuses those journal helpers when the owner changes the password of the disk holding `/`: it changes the LUKS key and confirms the new key opens the disk and the old one no longer does. The login and root passwords are left alone. `~/.local/state/nixos/drive-password.state` records the disk's UUID, the key slots and the phase (never a password) until the change is confirmed and its slot recorded, and the next run finishes an interrupted change with whichever of the old or new password the disk opens with.
+
+Prebuilt images are set up away from the machine they will run on, so their hardware setup waits for that machine. The builder writes a root-owned manifest, `/var/lib/nixos/image/target` (`format=1`, `platform=<nixos-hw-platform value>`), before `nixos-apply-system`. While it exists, `nixos-apply-hardware` runs no hardware leaf: it queues each one in `/var/lib/nixos/image/deferred-steps` and arms `nixos-provision-hardware.service` (shipped from `install/provisioning/`). On the machine's first boot, before owner setup and the login screen, `bin/nixos-provision-hardware` renames the manifest to `target.booted` and runs the queue in order, dropping each step that succeeds. Before the first step it makes the machine's own pacman keyring when the build asked for one (`/var/lib/nixos/image/pacman-keyring`, which install finalization writes on aarch64 platforms other than Apple Silicon instead of running `pacman-key --init`, so no two machines share a master key). A failed step stays queued for the next boot. It refreshes no package databases: the image carries its sync databases and every package its queued steps install, so the queue runs offline (the image build checks that it carries them; a step whose package is missing stays queued). Once the queue is empty it rebuilds the initramfs if a step changed its inputs (the mkinitcpio configuration, module options in `/etc/modprobe.d/` and `/usr/lib/modprobe.d/`, or the kernel command line in `/etc/default/limine` and `/etc/limine-entry-tool.d/`) or asked for the rebuild (`/var/lib/nixos/image/boot-rebuild`), and disables the service; the unit file stays, so a start job already queued is skipped on the emptied queue rather than failed. A platform's own first boot may run `nixos-provision-hardware` itself: runs are serialised, and it exits 75 when a step or the keyring failed and stays queued, and 1 when it refused to run (an untrusted manifest or queue) or the final rebuild failed, which the next run retries. Steps know they run on an image's first boot from `NIXOS_IMAGE_DEFERRED_HARDWARE=1` (Bluetooth starts its service there, since boot already brought up its target). `install/helpers/image-target.sh` holds the contract. Root always uses these fixed paths; no environment variable turns a live system into an image build.
+
+Current generated theme state lives under
+`~/.local/state/nixos/current/`. Keep `~/.config/nixos/` for files a user
+may intentionally version in a dotfile manager, such as user themes, hooks,
+shell layout, plugins, and themed template overrides.
+
+## Build-time map (repo → installed paths)
+
+```
+nixos/                            built into          installed at
+─────────────────────────           ──────────────      ────────────────────────────────────
+
+bin/nixos-*                  ──►  nixos             /usr/bin/nixos-*
+                                                        (and symlinks in /usr/share/nixos/bin/)
+bin/nixos-debug,
+bin/nixos-debug-idle,
+bin/nixos-upload-log         ──►  nixos-settings    /usr/bin/  (needed before nixos is installed)
+
+default/libalpm/hooks/*.hook
+                                ──►  nixos             /usr/share/libalpm/hooks/*.hook
+
+install/**                     ──►  nixos             /usr/share/nixos/install/
+migrations/**                  ──►  nixos             /usr/share/nixos/migrations/
+themes/**                      ──►  nixos             /usr/share/nixos/themes/
+shell/**                       ──►  nixos             /usr/share/nixos/shell/
+version                        ──►  nixos             /usr/share/nixos/version
+                                                        + /etc/skel/.local/state/nixos/migrations/*
+
+config/**                      ──►  nixos-settings    /etc/skel/.config/**         (seeds new users)
+                                                        /usr/share/nixos/config/** (resync source)
+etc/fastfetch/config.jsonc     ──►  nixos-settings    /etc/fastfetch/config.jsonc
+etc/xdg/kitty/kitty.conf       ──►  nixos-settings    /etc/xdg/kitty/kitty.conf
+etc/mpv/mpv.conf               ──►  nixos-settings    /etc/mpv/mpv.conf            (hardware decoding; ~/.config/mpv wins)
+etc/xkb/{rules/evdev,symbols/nixos}
+                               ──►  nixos-settings    /etc/xkb/                    (Shift + Caps Lock compose option)
+
+applications/*.desktop         ──►  nixos-settings    /etc/skel/.local/share/applications/
+                                                        /usr/share/nixos/applications/
+default/applications/*.desktop
+                                ──►  nixos-settings    /usr/share/nixos/default/applications/
+                                                        (optional and legacy launcher templates)
+applications/icons/*           ──►  nixos-settings    /usr/share/icons/hicolor/{48,256,scalable}/apps/
+
+etc/**                         ──►  nixos-settings    /etc/**           (drop-ins we own outright)
+  ├─ mkinitcpio.conf.d/{00-nixos-hooks,nixos_hooks,thunderbolt_module}.conf
+  ├─ limine-entry-tool.d/{nixos-defaults,nixos-uki}.conf
+  ├─ mise/conf.d/{nixos,nixos-tools,nixos-agent-accounts}.toml
+  ├─ NetworkManager/, sudoers.d/, sysctl.d/, tmpfiles.d/,
+  │  profile.d/nixos.sh, …                            (a summary — `ls etc/` for the full ~17-entry tree)
+  └─ security/faillock.conf, nsswitch.conf,
+     cups/cups-browsed.conf, plymouth/plymouthd.conf    /usr/share/nixos/etc-overrides/
+                                                          → /etc/* (post_install cp -f, see below)
+
+default/limine/limine.conf     ──►  nixos-settings    /usr/share/nixos/default/limine/limine.conf
+default/limine/default.conf    ──►  nixos-settings    /usr/share/nixos/default/limine/default.conf
+                                                        (template; ISO substitutes @@CMDLINE@@ → /etc/default/limine)
+default/snapper/root           ──►  nixos-settings    /etc/snapper/config-templates/nixos
+                                                        (+ /usr/share/nixos/default/snapper/root)
+
+default/**                     ──►  nixos-settings    /usr/share/nixos/default/
+  ├─ bash/env-bootstrap                                 /usr/share/nixos/default/bash/env-bootstrap
+  │                                                       (sourced by every shell/session entry point; see "Env bootstrap")
+  ├─ bashrc                                             /usr/share/nixos/etc-overrides/dot.bashrc
+  │                                                       → /etc/skel/.bashrc (post_install cp -f)
+  ├─ hypr/toggles/*.lua (flags,
+  │    single-window-aspect-ratio, window-no-gaps)      /etc/skel/.local/state/nixos/toggles/hypr/
+  ├─ nautilus-python/extensions/*.py                    /etc/skel/.local/share/nautilus-python/extensions/
+  ├─ uwsm/env.d/10-nixos                              /usr/share/uwsm/env.d/
+  ├─ environment.d/*.conf                               /usr/lib/environment.d/
+  ├─ fontconfig/conf.avail/50-nixos.conf              /usr/share/fontconfig/conf.avail/
+  │                                                       + symlink /etc/fonts/conf.d/50-nixos.conf
+  ├─ xdg-terminal-exec/*.list                           /usr/share/xdg-terminal-exec/
+  ├─ applications/mimeapps.list                         /usr/share/applications/mimeapps.list
+  ├─ systemd/user/*.service                             /usr/lib/systemd/user/
+  ├─ systemd/user/app.slice.d/10-oomd.conf              /usr/lib/systemd/user/app.slice.d/
+  ├─ systemd/user/wireplumber.service.d/10-nixos-camera-access.conf  /usr/lib/systemd/user/wireplumber.service.d/
+  ├─ systemd/system-sleep/unmount-fuse                  /usr/lib/systemd/system-sleep/
+  ├─ systemd/zram-generator.conf.d/90-nixos.conf      /usr/lib/systemd/zram-generator.conf.d/
+  ├─ systemd/timesyncd.conf.d/10-nixos.conf          /usr/lib/systemd/timesyncd.conf.d/
+  ├─ fonts/nixos/nixos.ttf                          /usr/share/fonts/nixos/
+  ├─ sddm/nixos/                                      /usr/share/sddm/themes/nixos/
+  ├─ sddm/hyprland.lua                                  /usr/share/sddm/hyprland.lua
+  ├─ wayland-sessions/nixos.desktop                   /usr/local/share/wayland-sessions/
+  └─ plymouth/                                          /usr/share/plymouth/themes/nixos/
+
+logo.{txt,svg}, icon.{txt,png}  ──► nixos-settings    /usr/share/nixos/  (resync source)
+                                                        /usr/share/pixmaps/nixos.png
+                                                        /usr/share/icons/hicolor/256x256/apps/nixos.png
+                                                        /etc/skel/.config/nixos/branding/{about,screensaver}.txt
+```
+
+The hardware-conditional `force-igpu` and `keyboard-backlight` sources also live under `default/systemd/system-sleep/`, but their setup commands publish root-owned copies only on machines that need them; they are not installed by `nixos-settings`.
+
+### Platform root
+
+A platform's runtime package (nixos-mac on Apple Silicon, say) adds its desktop files under a fixed root that only the one installed platform package owns. NixOS ships nothing there, and a missing root or file means no platform additions. No environment variable moves it; tests reach fixtures through test-only seams, never through a desktop session's environment.
+
+```
+/usr/share/nixos-platform/
+  displays.conf                backlight and DDC hints for the display commands (below)
+  key-names                    "<keysym> <name>" lines the keybindings menu shows in place of keysyms
+  display-cutouts.json         camera cutouts the top bar keeps out of (see nixos-shell.md)
+  keyrings                     signing keyring packages of the repositories the platform adds, one per line
+  audio.json                   audio processing nodes the audio panel and microphone widget leave out (below)
+  fingerprint-readers          readers the kernel drives without USB, and the file that shows each one is usable (below)
+```
+
+See [lifecycle-dispatch.md](lifecycle-dispatch.md#platform-files).
+
+`nixos-update-keyring` refreshes each installed package `keyrings` names (`#` comments and blank lines skipped, and a line that isn't a `*-keyring` package name skipped with a warning) along with Arch's, before the system upgrade, installing any newer version the repository has, so a key rotation in the platform's own repository never fails that upgrade's signature checks. On Apple Silicon, nixos-mac names `asahi-alarm-keyring` there.
+
+#### Display hints (`displays.conf`)
+
+`nixos-hw-display` picks the built-in panel's backlight by name (`gmux_backlight`, then `amdgpu_bl*`, `intel_backlight`, `acpi_video*`, else the first one listed, never a T2 Touch Bar's `appletb_backlight`), and `nixos-brightness-display` probes every external monitor over DDC. Where a platform's names or display driver differ, its platform package says so in `/usr/share/nixos-platform/displays.conf`; NixOS ships none, and without it both behave as above. One directive per line, whitespace-separated; blank lines, whole-line `#` comments, unknown directives, and lines with a wrong word count or a name that is `.`, `..` or has a `/` are ignored:
+
+- `backlight-skip <glob>`: a `/sys/class/backlight` name (a shell glob) that never drives the built-in panel, such as a Touch Bar's. It is never picked, not even when a later directive or the built-in order names it.
+- `backlight-prefer <name>`: the built-in panel's backlight, a literal name, tried after `gmux_backlight` and before the GPU and ACPI ones, in file order.
+- `ddc-require-connector-ddc`: the display driver registers no DDC channel, so a probe would only walk unrelated I2C buses. An external monitor (other than an Apple Studio or XDR Display, which `nixos-brightness-display-apple` drives with asdcontrol) is probed only when its DRM connector has a `ddc` node (`/sys/class/drm/card*-<connector>/ddc`); otherwise it gets no DDC or backlight control, and the built-in panel is never dimmed in its place.
+
+No environment variable moves the file: these commands also run under `sudo` and from the brightness keys. Their tests (`test/shell.d/hw-display-test.sh`, `test/shell.d/brightness-display-test.sh`) run a copy rewritten to read a fixture in its place.
+
+#### Fingerprint readers (`fingerprint-readers`)
+
+`nixos-hw-fingerprint` finds USB readers by their product string or vendor. A reader the kernel drives some other way (a Mac's Touch ID sensor, behind its Secure Enclave) is named by the platform package in `/usr/share/nixos-platform/fingerprint-readers`; NixOS ships none. Each line is an absolute path, a shell glob, then the value that file reads once the reader is usable; the reader is present when any file the glob matches reads that value. The value must be the file's whole content, not part of it (Touch ID reads `not-ready` before it reads `ready`). Three details decide a match: the file's trailing newlines are dropped before comparing (sysfs ends every value with one), fields are split on whitespace (so neither the glob nor the value can contain a space), and the file is read as the user running the check, the session user, so it must be readable by that user and not only by root. Blank lines, whole-line `#` comments, relative paths and lines with a missing or extra word are ignored. A platform file never hides a USB reader: when no platform-named file matches, the USB scan still runs. On Apple Silicon, nixos-mac names `/run/nixos-mac/touchid` twice, with `ready` and with `available`. Its own units write that file (`0644`): `available` at boot on a Mac that can set up Touch ID but whose owner hasn't turned it on, since nothing loads the Secure Enclave driver before the owner agrees, and `ready` once the driver's attributes say Touch ID can enrol and match; anything else is a reason, which no line names. A reader that is only `available` is turned on by setup's `enable-fingerprint` hook ([lifecycle-dispatch.md](lifecycle-dispatch.md)), which asks the owner first. The file follows the kernel's names for the Secure Enclave driver (`apple_sep`) and its `diag` attributes, read by nixos-mac, so a kernel rename is that package's to follow.
+
+The rest of the fingerprint path is the same for every reader: the setup's first-run invitation follows `nixos-hw-fingerprint`, so it reaches a machine once its platform's reader is usable or can be turned on, and `nixos-setup-security-fingerprint` installs `libfprint-git`, runs the platform's `enable-fingerprint` hook (a no-op where there is none) and enrolls. Removal (`nixos-remove-security-fingerprint`) authenticates `sudo` in view, then deletes the user's prints through `fprintd-delete` while fprintd still runs, since a match-on-chip reader (a Mac's Touch ID among them) keeps them in the device too; a delete that fails, or finds no reader, is reported and doesn't stop the removal. It runs `disable-fingerprint` before the packages go. Setup can only enroll a platform's reader once that package carries its driver; for a Mac's Touch ID that is the aarch64 build from omacom/nixos-pkgs#806. `test/shell.d/hw-fingerprint-test.sh` runs a copy rewritten to read a fixture in place of the file.
+
+#### Audio hints (`audio.json`)
+
+The audio panel lists every output, input and playback stream PipeWire has, and the microphone widget counts every recording as the microphone in use (the shell's own level meters never count). A platform whose audio runs through its own processing (DSP filter graphs in front of raw devices, say) has nodes that are neither devices nor apps, and its platform package names them in `/usr/share/nixos-platform/audio.json`; NixOS ships none, and without it nothing is left out.
+
+```json
+{
+  "hidden": ["<pattern>", "..."],
+  "replaced": [{ "node": "<pattern>", "by": "<pattern>" }]
+}
+```
+
+A pattern is a JavaScript regular expression matched against a whole `node.name`. A `hidden` node is never listed as an output, an input or an app stream, unless it is the current default output or input (so the panel always shows what's in use), and never lights the microphone widget; a `replaced` node is left out only while a node matching `by` exists (a mono processed microphone behind a stereo copy of it, say). Missing or malformed JSON means no hints, and an invalid pattern or entry is skipped. The shell reads the file at that fixed path, which no environment variable moves (`shell/Commons/AudioNodes.qml`), and `test/shell.d/audio-test.sh` covers the parsing.
+
+A virtual source (an `Audio/Source/Virtual`, such as EasyEffects' or a platform's microphone mapping) needs no hint: Quickshell leaves it untyped, so the panel and widget set its volume and mute through `wpctl` (`shell/Commons/UntypedInput.qml`, one `pactl subscribe` for the whole shell), shows no level meter for it (Quickshell's peak monitor takes typed nodes only), and the panel lists it because PulseAudio does (`nixos-audio-sink-availability sources`).
+
+### Why `etc-overrides/` exists
+
+Some files under `/etc/` (`.bashrc` in `/etc/skel`, `nsswitch.conf`,
+`security/faillock.conf`, `cups/cups-browsed.conf`, `plymouth/plymouthd.conf`)
+are owned by upstream Arch packages, so we can't install over them via pacman
+without a file conflict. Instead their sources (under `etc/` in the repo;
+`.bashrc` from `default/bashrc`) ship at
+`/usr/share/nixos/etc-overrides/` and the `nixos-settings` `post_install`
+/ `post_upgrade` scriptlet `cp -f`'s them into place.
+
+Tradeoff: user edits to those files get clobbered on every `nixos-settings`
+upgrade. This is documented in the PKGBUILD.
+
+## Locate indexing
+
+`default/systemd/system/plocate-updatedb.service.d/10-nixos.conf` ships through `nixos-settings` to `/usr/lib/systemd/system/plocate-updatedb.service.d/10-nixos.conf`. It replaces the existing service's `ExecStart` with `updatedb --prune-bind-mounts=no --add-prunepaths=/.snapshots`, keeping Btrfs subvolume mounts searchable and excluding Snapper snapshots. The upstream service retains its timer, resource limits, and sandbox; NixOS's existing AC-power condition still applies.
+
+`/etc/updatedb.conf` remains owned by plocate and is never rewritten by NixOS. The command-line options override bind-mount pruning and add to the administrator's existing path exclusions. Installer and AUR package refreshes pass the same options directly because installation may run without systemd and an explicitly requested refresh should work on battery.
+
+Arch's systemd package hook reloads units when the vendor drop-in is installed or upgraded. The settings package containing the drop-in must ship alongside the runtime package that removes the old configuration helper and migration. Pacman removes those retired files; no new state migration is needed. A running indexer finishes with its original options, and subsequent service starts use the drop-in. For an immediate local test after installing the packages, restart `plocate-updatedb.service` while connected to AC power.
+
+## Env bootstrap (`default/bash/env-bootstrap`)
+
+Single source of truth for `NIXOS_PATH` and dev-link-aware `PATH`. It:
+
+- Sources `/etc/nixos.conf` (written by `nixos-dev-link`, reset to the
+  package path by `nixos-dev-unlink`) if present; otherwise forces
+  `NIXOS_PATH=/usr/share/nixos` so a stale inherited value can't survive
+  an `nixos-dev-unlink`.
+- Prepends `$NIXOS_PATH/bin` to `PATH` **only when** `NIXOS_PATH` is
+  not `/usr/share/nixos`. On a production install the binaries are
+  already on `PATH` as `/usr/bin/nixos-*` via the `nixos` package.
+- Prepends mise's `command-wrappers/bin` so subscription account dispatch runs before inherited tool binaries, then appends `~/.local/share/mise/shims` and `~/.local/bin` so login shells and the uwsm session find mise-managed tools. The existing mise tool shims also dispatch these wrappers for SSH commands that run no shell setup; the PAM path needs no additional entry. `etc/mise/conf.d/nixos-agent-accounts.toml` declares the Claude, Codex, and Grok wrappers; `mise reshim` builds them during user setup and migration. Each invocation resolves the selected account through `nixos-agent-account-exec`, while an explicit provider home takes precedence. Credentials and running sessions remain in their original account homes.
+
+Sourced by every entry point that needs the env set:
+
+```
+/etc/profile.d/nixos.sh                      (system login shells)
+/etc/skel/.bashrc                              (interactive shells)
+/usr/share/uwsm/env.d/10-nixos               (Hyprland session via uwsm)
+/usr/share/nixos/default/bash/envs           (SSH / non-login bash)
+```
+
+Idempotent — safe to source more than once in the same shell.
+
+`PATH` covers everything the user runs, but not `sudo`, which resolves command
+names against `secure_path` from `/etc/sudoers`. So `nixos-dev-link` also
+writes `/etc/sudoers.d/nixos-dev-path`:
+
+```
+Defaults secure_path="<checkout>/bin:/usr/local/sbin:/usr/local/bin:/usr/bin"
+```
+
+Without it, `sudo nixos-*` fails for a command the package has not shipped
+yet and silently runs the packaged copy of one it has. The drop-in is validated
+with `visudo -c` before install and removed by `nixos-dev-unlink`; unlike
+`/etc/nixos.conf`, it takes effect without a reboot.
+
+Factory reset is an exception: it always self-elevates through `/usr/bin/nixos-system-factory-reset` and refuses a checkout copy that differs from the installed command, including when invoked with `sudo`. Install the matching package before resetting so a newer checkout cannot silently hand off to older account-scrubbing code.
+
+## Runtime finalization (`nixos-provision-user`)
+
+Runs once per user. It does **not** copy `~/.config/**`, `~/.bashrc`,
+`flags.lua`, or the nautilus extensions — `/etc/skel` already seeded those.
+It only does the things `/etc/skel` can't:
+
+- Skill symlinks into `~/.agents/skills/<name>`, `~/.claude/skills/<name>`, `~/.codex/skills/<name>`, `~/.pi/agent/skills/<name>`, `~/.gemini/config/skills/<name>` (Antigravity), `~/.hermes/skills/<name>`, and each existing `~/.hermes/profiles/*/skills/<name>` → `$NIXOS_PATH/default/agents/skills/<name>`, looping over every skill directory there (currently `nixos` and `diagnose-crash`) so new skills need no edit. Symlinks (not copies) so `nixos dev link` against a dev checkout repoints them correctly. Hermes profile dirs are only linked when they already exist — provision does not create Hermes profiles.
+- `xdg-user-dirs-update` (Templates/Public/Desktop folded back into `$HOME`)
+  and `~/.config/gtk-3.0/bookmarks` (needs `$HOME` expansion).
+- Hyprland's package-owned default input reads `XKBLAYOUT` / `XKBVARIANT`
+  from `/etc/vconsole.conf`; no per-user Hyprland config rewrite is needed.
+- `xdg-settings set default-web-browser chromium.desktop` and
+  `xdg-mime default HEY.desktop x-scheme-handler/mailto` (XDG-aware paths).
+- `nixos-refresh-applications` (composes generated `.desktop` launchers).
+- Sources `install/user/all.sh` — theme, chromium, git, xcompose, mise,
+  keyring, per-user hardware quirks (asus mic/mixer, framework f13 audio, …).
+- On `--first-install`, marks every shipped user migration as already applied
+  for the freshly-created user.
+
+Idempotency marker: `~/.local/state/nixos/done/finalize-user`, managed
+by `nixos-done`.
+
+The ISO calls it as `nixos-provision-user --force --first-install` in the
+target chroot as the install user, after `nixos-apply-system` has finished
+the root-side work. `nixos-provision-owner` makes the same call (with
+`NIXOS_SETUP_CONTEXT=provision-owner`) when it creates the user during
+deferred first-boot provisioning.
+
+## Migrations (`nixos-migrate`)
+
+See [`migrations.md`](../agents/skills/migrations.md) for the full migration model, authoring
+guidelines, and troubleshooting notes.
+
+NixOS migrations live in `migrations/*.sh` and run per-user through
+`nixos-migrate`. Completion state lives in
+`~/.local/state/nixos/migrations/`, so every user gets a chance to run every
+migration. Migrations run as the user; privileged work should invoke the
+appropriate helper or privilege prompt. Migrations must be idempotent;
+machine-wide repairs should no-op when another user already applied them.
+
+Each graphical user has `nixos-migrate-notify.service`, started once per login
+through `WantedBy=graphical-session.target` and ordered after that target so
+notification actions can safely launch through UWSM. The `nixos-pkgs`
+PKGBUILD has shipped `nixos-update-user-notify.service` as a symlink onto
+it, so users enabled under the old unit name keep working before they reach
+migration `1785095882`.
+It runs `nixos-migrate-notify` as
+that user, which checks `nixos-migrate --pending`. If this user has missing
+migration state, it shows a notification that opens a terminal for
+`nixos-migrate`. The notifier never runs migrations in the background.
+
+Login is the only trigger. Nothing watches the packaged migration directory: a
+watcher cannot tell a bypassed `pacman -Syu` from the package transaction inside
+a normal `nixos update`, so it notified about migrations that `nixos-migrate`
+was already applying in the visible update terminal.
+
+`nixos-migrate` waits for any active pacman transaction to finish, then runs
+pending migrations. It does not need `--force`; migrations happen when state
+files are missing. `nixos update` runs `nixos-migrate` after the package
+transaction in the already-visible update terminal, then runs
+`nixos-hook post-update`.
+
+## First-run (`nixos-provision-first-run`)
+
+Runs once on first interactive login, after the user manager is live. It
+first runs `nixos-provision-user || true` so finalize catches up if it
+never ran, then handles the steps that need a running graphical session
+and/or a working user systemd instance:
+
+- `install/user/first-run/enable-user-units.sh` — daemon-reload, then
+  `systemctl --user enable --now` the shipped user units (`bt-agent`,
+  `nixos-sleep-lock`, `nixos-recover-internal-monitor`,
+  `nixos-migrate-notify.service`, `nixos-fcitx5.service`,
+  `nixos-crash-watch.service`) so they run in the first session too.
+  Done here, not at finalize, because
+  the user manager isn't reachable from the ISO chroot; `ConditionPath*`
+  in the unit files keeps services inert when they don't apply.
+- `nixos-lifecycle-dispatch setup-user` — the platform's own user setup,
+  now with the session up (a no-op where the platform registers none; see
+  [lifecycle-dispatch.md](lifecycle-dispatch.md)).
+- `install/user/first-run/gnome-theme.sh`,
+  `install/user/first-run/gtk-primary-paste.sh` — GNOME/GTK settings that
+  need the dconf daemon.
+- `install/user/first-run/audio-tuning.sh` — apply speaker tuning.
+- `install/user/first-run/welcome.sh` — keybindings toast that greets the
+  first login and opens the cheatsheet when clicked. The caller runs
+  `nixos-notification-wait` once before this and the Wi-Fi step, so both
+  toasts land on a live notification server.
+- `install/user/first-run/wifi.sh` — Wi-Fi toast, then (waiting detached on `nm-online` for the first connection, however long that takes) the default-agent and fingerprint invitations (`setup-agent.hook`, `setup-fingerprint.hook`) and the update toast. Each invitation is sent only once.
+
+The entire sequence has one idempotency marker:
+`~/.local/state/nixos/done/first-run-user`, managed by `nixos-done`.
+Completed users exit before any first-run step. On failure the marker is not
+written and the sequence retries next login.
+
+Completion markers live under `~/.local/state/nixos/done/`. Use
+`nixos-done check <name>` to check one and `nixos-done mark <name>` to record it.
+Use `nixos-done ensure <name>` as a conditional when the guarded work should
+run only once; it records completion before returning success.
+The Quattro upgrade completes graphical first-run for upgraded users and moves
+the legacy finalization marker from `~/.local/state/nixos/` into `done/`.
+
+## Root-side install orchestration
+
+`nixos-apply-system` (root, in chroot) runs target-side setup at ISO
+finalization. It sources:
+
+- `install/config/all.sh` — theme links, lockout limits, lockscreen PAM,
+  SSH command path and keepalive, docker setup,
+  Snapper retention, locate index tuning, service enablement, firewall.
+- `install/hardware/all.sh` via `nixos-apply-hardware` — vendor- and
+  device-specific kernel modules, udev rules, microcode, wireless regdom,
+  ASUS / Framework / Intel / Apple / Lenovo quirks.
+- `install/login/all.sh` — SDDM theme/session config.
+- `install/post-install/all.sh` — final pacman/udev/localdb passes.
+
+Logging goes to `/var/log/nixos-install.log` via
+`install/helpers/logging.sh`.
+
+Platform-specific setup asks `nixos-hw-platform`, which prints `x86`, `aarch64`, `aarch64-apple`, `aarch64-qualcomm`, `aarch64-n1x` or `aarch64-gb10` (the naming standard is in AGENTS.md under Platforms). It reads the vendor prefix of each token in the device tree's root `compatible` (`apple,` or `qcom,`, from `/proc/device-tree` or `/sys/firmware/devicetree/base`) and the CPU architecture, and fails when they contradict each other. A Snapdragon laptop's `qcom,` tree is `aarch64-qualcomm`. The NVIDIA N1x boots with ACPI and no device tree; it is `aarch64-n1x` when its MediaTek I2C controllers (ACPI `NVDA0200`) or its GPU (PCI `10de:2e06`) are present, and a device tree naming Apple or Qualcomm alongside them is a contradiction. An NVIDIA GB10 desktop, such as the DGX Spark, also boots with ACPI; it is `aarch64-gb10` when its GPU (PCI `10de:2e12`) is present, with the same contradictions, and an N1x signature alongside it is one too. A manifest written by an older image builder may still say `apple-silicon`, `generic-aarch64`, `generic` or `qualcomm`, which read as `aarch64-apple`, `aarch64`, `x86` and `aarch64-qualcomm`.
+
+An image built away from the machine it will run on names its target in a root-owned manifest, `/var/lib/nixos/image/target` (`format=1`, `platform=<nixos-hw-platform value>`, unknown keys ignored). While the root is being built rather than booted, the detector answers from the manifest and never reads the build host's device tree. The root counts as built when it shows it: no `/run/systemd/system`, PID 1's root is another one (a chroot), or PID 1 is not systemd (a PID namespace). A booted system always answers from its hardware, even with a manifest left behind, so no unit that asks the detector may use `PrivatePIDs=`. As root the detector restarts in an empty environment and ignores the fixture variables its tests use.
+
+The package lists the ISO pacstraps live at `install/nixos-base.packages`
+and `install/nixos-other.packages`; the ISO builder also reads them when
+constructing its offline mirror.
+
+A platform's default package set is the base list, then its architecture's additions, then its own: `install/nixos-aarch64.packages` on every aarch64 platform, then `install/nixos-<platform>.packages` when that platform has one (`install/nixos-aarch64-apple.packages` on Apple Silicon, `install/nixos-aarch64-qualcomm.packages` on Snapdragon, `install/nixos-aarch64-n1x.packages` on the N1x, `install/nixos-aarch64-gb10.packages` on the GB10). x86 installs the base list alone. `nixos-pkg-defaults [platform]` prints the composed set, for the running machine by default (via `nixos-hw-platform`, so an image build gets its target's set), and `nixos-reinstall-pkgs` installs it.
+
+## Platform display hints (`/usr/share/nixos-platform/displays.conf`)
+
+`nixos-hw-display` picks the built-in panel's backlight by name (`gmux_backlight`, then `amdgpu_bl*`, `intel_backlight`, `acpi_video*`, else the first one listed, never a T2 Touch Bar's `appletb_backlight`), and `nixos-brightness-display` probes every external monitor over DDC. Where a platform's names or display driver differ, its platform package says so in `/usr/share/nixos-platform/displays.conf`; NixOS ships none, and without it both behave as above. One directive per line, whitespace-separated; blank lines, whole-line `#` comments, unknown directives, and lines with a wrong word count or a name that is `.`, `..` or has a `/` are ignored:
+
+- `backlight-skip <glob>`: a `/sys/class/backlight` name (a shell glob) that never drives the built-in panel, such as a Touch Bar's. It is never picked, not even when a later directive or the built-in order names it.
+- `backlight-prefer <name>`: the built-in panel's backlight, a literal name, tried after `gmux_backlight` and before the GPU and ACPI ones, in file order.
+- `ddc-require-connector-ddc`: the display driver registers no DDC channel, so a probe would only walk unrelated I2C buses. An external monitor (other than an Apple Studio or XDR Display, which `nixos-brightness-display-apple` drives with asdcontrol) is probed only when its DRM connector has a `ddc` node (`/sys/class/drm/card*-<connector>/ddc`); otherwise it gets no DDC or backlight control, and the built-in panel is never dimmed in its place.
+
+No environment variable moves the file: these commands also run under `sudo` and from the brightness keys. Their tests (`test/shell.d/hw-display-test.sh`, `test/shell.d/brightness-display-test.sh`) run a copy rewritten to read a fixture in its place.
+
+## Explicit resync (`nixos-reinstall-configs`)
+
+When an existing user wants to reset to shipped defaults:
+
+```
+~/  ←  cp -af /etc/skel/.
+```
+
+Replaying `/etc/skel` over `$HOME` is exactly what `useradd -m` does for a
+brand-new user, so this one copy resyncs `.bashrc`, `.config/**`,
+`.local/share/applications/`, the nautilus-python extensions, hypr toggles,
+branding files, and the shipped migration markers in a single pass.
+
+Then it runs `nixos-refresh-limine`, `nixos-refresh-plymouth`, and the
+nvim refresh. Destructive: existing user files copied from `/etc/skel` are
+clobbered without backup. Fastfetch is package-owned at
+`/etc/fastfetch/config.jsonc`; delete `~/.config/fastfetch/config.jsonc` to
+return to the packaged default.
+
+## Quick reference: where does X live?
+
+| Goal | Touch |
+| --- | --- |
+| Default file at `~/.config/foo/` | `config/foo/` |
+| `/etc/` drop-in we own outright | `etc/` |
+| `/etc/` file owned by an upstream package | `etc/` (see `etc/security/faillock.conf`), then add to `etc-overrides` in `nixos-settings` PKGBUILD + scriptlet |
+| Package-owned system file (e.g. systemd user service in `/usr/lib`) | `default/`, then add the `install -Dm644` line in `nixos-settings` PKGBUILD |
+| Per-user file that's static but lives outside `~/.config` | `default/`, then add `install -Dm644 ... $pkgdir/etc/skel/...` in `nixos-settings` PKGBUILD |
+| Runtime tweak that needs `$HOME` or live system state | extend `nixos-provision-user`, or add a per-user leaf under `install/user/` and wire into `install/user/all.sh` |
+| One-time root-side setup step | `install/config/*.sh` or `install/hardware/*.sh`, wire into `install/config/all.sh` or `install/hardware/all.sh` |
+| One-time fix for existing installs | `migrations/<unix-timestamp>.sh` |
+| Package-owned path something else may already write | Prefer a path nothing else writes, such as a vendor drop-in under `/usr/lib`. Otherwise the `--overwrite` entry in `bin/nixos-update-system-pkgs` has to ship a release before the file |
+| User-facing `nixos-*` command | `bin/nixos-<group>-<verb>` — see `GROUP_DESCRIPTIONS` in `bin/nixos` |
+| New stock theme | `themes/<name>/` (+ matching templates under `default/themed/` if they need theme colors) |
+| User-installed theme | `~/.config/nixos/themes/<name>/` |
+| Generated current theme/background state | `~/.local/state/nixos/current/` |
+
+## Kitty defaults and user overrides
+
+Kitty loads `/etc/xdg/kitty/kitty.conf` before `~/.config/kitty/kitty.conf`. The `nixos-settings` package owns the system file; the user template contains only the active theme include and commented examples for personal overrides. Keeping the theme include in the user file lets users remove it without changing the packaged defaults. Individual inherited keybindings can be unmapped with an empty `map <shortcut>` directive, or all inherited bindings can be cleared with `clear_all_shortcuts yes`.
+
+The system default uses `allow_remote_control socket-only` so NixOS can query the active terminal directory over its Unix socket while Kitty rejects remote-control requests arriving through terminal output. Changing this setting requires restarting Kitty. The migration refreshes the exact previous stock config with a backup; customized configs retain their settings and ordering, with only explicit unrestricted `yes`, `y`, or `true` remote-control settings commented out.

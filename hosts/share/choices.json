@@ -1,0 +1,10 @@
+{
+  "user": { "name": "user", "fullName": "Пользователь" },
+  "desktop": "both",
+  "kernel": "cachyos",
+  "kernelBuild": "ready",
+  "gpu": "mesa",
+  "player": "spotify",
+  "extras": [],
+  "system": { "mitigationsOff": false, "virtualization": true, "iommu": true }
+}

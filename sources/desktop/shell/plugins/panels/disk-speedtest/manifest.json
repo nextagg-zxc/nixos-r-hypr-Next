@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "nixos.disk-speedtest",
+  "name": "Disk speed test",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Live disk write and read speed dials. Summon with: nixos-shell shell summon nixos.disk-speedtest",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

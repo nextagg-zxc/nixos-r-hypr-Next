@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# nixos:summary=Restore the preinstalled NixOS applications (web apps, TUIs, and selected packages).
+# nixos:requires-sudo=true
+
+if gum confirm --affirmative "$(nixos-i18n common.yes)" --negative "$(nixos-i18n common.no)" "$(nixos-i18n preinstalls.confirmRestore)"; then
+  echo -e "Restoring preinstalled NixOS applications...\n"
+
+  # Recreates the shipped .desktop launchers (web apps and TUIs).
+  nixos-refresh-applications || exit 1
+
+  # Re-enable NixOS's default mise tools for this user and rebuild their shims.
+  if ! nixos-mise-default-tools enable; then
+    echo -e "\nCould not restore mise tools. Preinstalls remain marked as removed."
+    exit 1
+  fi
+
+  # Mirrors the list in nixos-remove-preinstalls; both track nixos-base.packages
+  if ! nixos-pkg-add \
+    aether \
+    cliamp \
+    libreoffice-fresh \
+    pinta \
+    obsidian \
+    moonlight-qt \
+    omacut \
+    monologue \
+    omacalc \
+    omawrite \
+    hype \
+    signed; then
+    echo -e "\nPreinstalls are still marked as removed. Fix the errors above and try again."
+    exit 1
+  fi
+
+  # Last, so a failure above leaves the opt-out intact rather than restoring
+  # keybindings for apps that never came back
+  rm -f ~/.local/state/nixos/preinstalls-removed
+  nixos-restart-hyprctl
+fi

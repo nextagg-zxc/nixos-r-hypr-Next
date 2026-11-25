@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# nixos:summary=Enable or disable background intros
+# nixos:args=<enable|disable|toggle|status>
+# nixos:examples=nixos theme bg intro toggle | nixos theme bg intro disable
+
+set -euo pipefail
+
+toggle="$HOME/.local/state/nixos/toggles/background-intros-off"
+case ${1:-} in
+  enable)
+    rm -f "$toggle"
+    nixos-notification-send "$(nixos-i18n theme.backgroundIntros)" "$(nixos-i18n common.enabled)"
+    ;;
+  disable)
+    mkdir -p "$(dirname "$toggle")"
+    touch "$toggle"
+    nixos-notification-send "$(nixos-i18n theme.backgroundIntros)" "$(nixos-i18n common.disabled)"
+    ;;
+  toggle)
+    if [[ -f $toggle ]]; then
+      nixos-theme-bg-intro enable
+    else
+      nixos-theme-bg-intro disable
+    fi
+    ;;
+  status)
+    [[ ! -f $toggle ]]
+    ;;
+  *)
+    echo "Usage: nixos-theme-bg-intro <enable|disable|toggle|status>" >&2
+    exit 1
+    ;;
+esac

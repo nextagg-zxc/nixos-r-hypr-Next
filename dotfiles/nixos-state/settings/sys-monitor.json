@@ -1,0 +1,10 @@
+{
+  "showCpu": true,
+  "showRam": true,
+  "showStorage": false,
+  "showExternalStorage": false,
+  "showNet": false,
+  "showNetUpload": false,
+  "showIcons": true,
+  "refreshInterval": 2000
+}

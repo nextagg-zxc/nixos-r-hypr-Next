@@ -1,0 +1,16 @@
+--- a/default/hypr/qconsole.lua	2026-11-24 23:41:14.797287527 +0100
++++ b/default/hypr/qconsole.lua	2026-11-24 23:41:14.849678288 +0100
+@@ -104,9 +104,10 @@
+ 
+   -- Monitor dimensions are in physical pixels; gaps are logical, so the scale
+   -- has to come out before the reserved area (already logical) comes off.
+-  local reserved = monitor.reserved
+-  height = height / monitor.scale - reserved.top - reserved.bottom
+-  width = width / monitor.scale - reserved.left - reserved.right
++  -- reserved бывает nil до первой раскладки (видно в VM при старте сессии)
++  local reserved = monitor.reserved or {}
++  height = height / monitor.scale - (reserved.top or 0) - (reserved.bottom or 0)
++  width = width / monitor.scale - (reserved.left or 0) - (reserved.right or 0)
+ 
+   local tall = math.floor(height * share)
+   local wide = width

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# nixos:summary=Ensure default application launchers are installed.
+
+# Copy .desktop declarations
+mkdir -p ~/.local/share/applications
+cp "$NIXOS_PATH"/applications/*.desktop ~/.local/share/applications/
+
+if nixos-cmd-present alacritty; then
+  cp "$NIXOS_PATH/default/alacritty/Alacritty.desktop" ~/.local/share/applications/
+fi
+
+update-desktop-database ~/.local/share/applications

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Enable, disable, or toggle the touchpad
+# nixos:args=[on|off|toggle]
+
+exec nixos-toggle-input-device touchpad "${1:-toggle}"

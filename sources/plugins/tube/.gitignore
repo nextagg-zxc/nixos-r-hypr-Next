@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+node_modules/
+
+# Marketplace submission draft, kept for reference, never committed.
+nixos-plugin-submission.md

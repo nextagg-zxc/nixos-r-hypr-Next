@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# nixos:summary=Open Voxtype configuration
+
+set -e
+
+nixos-launch-floating-terminal-with-presentation "voxtype configure"
+nixos-restart-shell

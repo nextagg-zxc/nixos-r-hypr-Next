@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# nixos:summary=Cycle to the next media source and transfer playback when the current source is playing
+# nixos:args=[next|previous]
+# nixos:examples=nixos audio source switch | nixos-audio-source-switch previous
+
+direction="${1:-next}"
+
+case "$direction" in
+  next)
+    nixos-shell media sourceSwitch
+    ;;
+  previous)
+    nixos-shell media sourceSwitchPrevious
+    ;;
+  *)
+    echo "Usage: nixos-audio-source-switch [next|previous]" >&2
+    exit 1
+    ;;
+esac

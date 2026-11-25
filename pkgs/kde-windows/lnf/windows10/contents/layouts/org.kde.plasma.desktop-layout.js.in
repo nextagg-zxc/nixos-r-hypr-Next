@@ -1,0 +1,12 @@
+// Windows 10: панель во всю ширину, «Пуск» и значки слева, справа трей, часы, «Свернуть всё».
+var panel = new Panel;
+panel.location = "bottom";
+panel.height = 40;
+panel.lengthMode = "fill";
+panel.floating = false;
+panel.hiding = "none";
+addStart(panel);
+addTasks(panel);
+panel.addWidget("org.kde.plasma.panelspacer");
+addTrayClockDesktop(panel);
+setupDesktops("@wallpaper10@");

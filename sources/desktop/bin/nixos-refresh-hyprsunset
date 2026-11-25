@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# nixos:summary=Overwrite the user config for hyprsunset with the NixOS default and restart the service.
+
+nixos-refresh-config hypr/hyprsunset.conf
+nixos-restart-hyprsunset

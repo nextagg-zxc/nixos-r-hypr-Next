@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "nixos.dev-gallery",
+  "name": "Dev gallery",
+  "version": "1.0.0",
+  "author": "NixOS",
+  "description": "Visual reference for nixos-shell common UI components. Summon with: nixos-shell shell summon nixos.dev-gallery '{}' (or run: nixos dev ui-preview).",
+  "kinds": [
+    "panel"
+  ],
+  "entryPoints": {
+    "panel": "GalleryPanel.qml"
+  }
+}

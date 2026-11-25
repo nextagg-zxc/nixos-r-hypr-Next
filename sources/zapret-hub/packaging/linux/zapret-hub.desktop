@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Zapret Hub
+GenericName=Обход блокировок
+Comment=Discord, YouTube и Telegram без блокировок (zapret + Flowseal)
+Exec=zapret-hub
+Icon=zapret-hub
+Terminal=false
+Categories=Network;Utility;
+Keywords=zapret;discord;youtube;telegram;dpi;

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""CLI entry point; keep imports from writing into the watched plugin directory."""
+import sys
+sys.dont_write_bytecode = True
+from lofi_backend import main
+main()

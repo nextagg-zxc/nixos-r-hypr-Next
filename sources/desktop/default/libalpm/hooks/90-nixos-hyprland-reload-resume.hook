@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = nixos-settings
+Target = nixos-settings-dev
+
+[Action]
+Description = Reloading Hyprland after NixOS settings update...
+When = PostTransaction
+Depends = nixos
+Exec = /usr/bin/nixos-hyprland-reload-guard resume
