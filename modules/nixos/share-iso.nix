@@ -18,6 +18,8 @@ let
   autoinstall = pkgs.writeShellScript "share-autoinstall" ''
     set -euo pipefail
     export PATH=${lib.makeBinPath (with pkgs; [ coreutils util-linux gptfdisk dosfstools btrfs-progs systemd ])}:/run/wrappers/bin:/run/current-system/sw/bin:$PATH
+    # стирает диск — только в виртуалке (на живом ПК ничего не делает, даже с флешкой SHAREAUTO)
+    systemd-detect-virt --vm -q || exit 0
     for _ in $(seq 20); do [ -e /dev/disk/by-label/SHAREAUTO ] && break; sleep 1; done
     [ -e /dev/disk/by-label/SHAREAUTO ] || exit 0
     exec > >(tee /dev/console >/dev/ttyS0 2>/dev/null) 2>&1   # и на экран, и в последовательный порт (QEMU)
