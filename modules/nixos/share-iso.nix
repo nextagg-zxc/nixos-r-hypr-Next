@@ -26,21 +26,25 @@ let
     mkdir -p /run/shareauto
     mount -o ro /dev/disk/by-label/SHAREAUTO /run/shareauto
     echo "АВТОУСТАНОВКА: $(cat /run/shareauto/answers.json)"
-    disk=/dev/vda
+    # virtio (обычная проверка) или NVMe (проверка «обычного ПК»)
+    disk=/dev/vda; part=
+    [ -b "$disk" ] || { disk=/dev/nvme0n1; part=p; }
     sgdisk -Z "$disk"
     sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8300 -c2:root "$disk"
     udevadm settle
-    mkfs.vfat -F32 -n EFI ''${disk}1
-    mkfs.btrfs -f -L nixos ''${disk}2
-    mount ''${disk}2 /mnt
+    esp=''${disk}''${part}1 root=''${disk}''${part}2
+    mkfs.vfat -F32 -n EFI "$esp"
+    mkfs.btrfs -f -L nixos "$root"
+    udevadm settle
+    mount -t btrfs "$root" /mnt
     btrfs subvolume create /mnt/home
     btrfs subvolume create /mnt/nix
     umount /mnt
-    mount ''${disk}2 /mnt
+    mount -t btrfs "$root" /mnt
     mkdir -p /mnt/home /mnt/nix /mnt/boot
-    mount -o subvol=home ''${disk}2 /mnt/home
-    mount -o subvol=nix ''${disk}2 /mnt/nix
-    mount -o fmask=0077,dmask=0077 ''${disk}1 /mnt/boot
+    mount -t btrfs -o subvol=home "$root" /mnt/home
+    mount -t btrfs -o subvol=nix "$root" /mnt/nix
+    mount -o fmask=0077,dmask=0077 "$esp" /mnt/boot
     echo '[{"mountPoint": "/", "fs": "btrfs"}]' >/tmp/parts.json
     if ${installer}/bin/nixos-share-install --answers /run/shareauto/answers.json \
          --root /mnt --partitions /tmp/parts.json; then
@@ -75,6 +79,15 @@ in
     defaultSession = "plasma";
   };
   environment.plasma6.excludePackages = [ pkgs.kdePackages.plasma-workspace-wallpapers ];
+  # установка идёт до получаса без касаний: без блокировки экрана, гашения и сна (ноутбук от батареи уснул бы посреди)
+  environment.etc."xdg/kscreenlockerrc".text = "[Daemon]\nAutolock=false\nLockOnResume=false\n";
+  environment.etc."xdg/powerdevilrc".text = lib.concatMapStrings (p: ''
+    [${p}][SuspendAndShutdown]
+    AutoSuspendAction=0
+    [${p}][Display]
+    DimDisplayWhenIdle=false
+    TurnOffDisplayWhenIdle=false
+  '') [ "AC" "Battery" "LowBattery" ];
   programs.kde-pim.enable = false;
   services.speechd.enable = lib.mkForce false;
   security.polkit.enablePkexecWrapper = true;
