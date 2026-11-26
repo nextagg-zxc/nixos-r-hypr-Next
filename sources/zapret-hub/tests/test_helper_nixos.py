@@ -66,33 +66,88 @@ class Autostart(Base):
         self.assertFalse(os.path.exists(config.AUTOSTART_FLAG))
 
 
-class InstallWithNixpkgsNfqws(Base):
-    def test_install_skips_zapret_with_nixpkgs_nfqws(self):
-        nfqws = os.path.join(self.tmp.name, "nfqws")
-        with open(nfqws, "w") as f:
+class Fix(Base):
+    def test_fix_nixos_managed_unit(self):
+        # NixOS: юниты в /etc/systemd только для чтения — disable не сработает, маскируем до перезагрузки
+        with mock.patch.object(config, "NIXOS", True, create=True), mock.patch.object(helper_linux, "log"):
+            helper_linux.cmd_fix(mock.Mock(id="zapret_gui"))
+        self.assertIn(["systemctl", "stop", "zapret-gui.service"], self.calls)
+        self.assertIn(["systemctl", "mask", "--runtime", "zapret-gui.service"], self.calls)
+        self.assertNotIn(["systemctl", "disable", "--now", "zapret-gui.service"], self.calls)
+        self.assertIn(["nft", "delete", "table", "inet", "zapret_gui"], self.calls)
+
+    def test_fix_regular_unit(self):
+        with mock.patch.object(config, "NIXOS", False, create=True), mock.patch.object(helper_linux, "log"):
+            helper_linux.cmd_fix(mock.Mock(id="zapret_gui"))
+        self.assertIn(["systemctl", "disable", "--now", "zapret-gui.service"], self.calls)
+
+
+class InstallFreshZapret(Base):
+    """NixOS тоже качает свежий zapret (стратегии Flowseal ждут свежий nfqws); nfqws из nixpkgs —
+    только запасной вариант, если скачать/подобрать не вышло."""
+
+    def setUp(self):
+        super().setUp()
+        self.fallback = os.path.join(self.tmp.name, "nixpkgs-nfqws")
+        with open(self.fallback, "w") as f:
             f.write("#!/bin/sh\n")
-        os.chmod(nfqws, os.stat(nfqws).st_mode | stat.S_IXUSR)
-        written = {}
+        os.chmod(self.fallback, os.stat(self.fallback).st_mode | stat.S_IXUSR)
+        self.written = {}
+        for k, v in {"ZAPRET_DIR": os.path.join(self.tmp.name, "zapret"),
+                     "CUSTOM_DIR": os.path.join(self.tmp.name, "strategies")}.items():
+            p = mock.patch.object(config, k, v)
+            p.start()
+            self.addCleanup(p.stop)
+        for target, attr, kw in ((helper_linux, "watch_stdin", {}), (helper_linux, "event", {}),
+                                 (updates, "install_flowseal", {"return_value": "1.9.0"}),
+                                 (updates, "convert_builtin", {}), (updates, "setup_lists", {}),
+                                 (updates, "install_targets", {}),
+                                 (updates, "write_file", {"side_effect": self.fake_write})):
+            p = mock.patch.object(target, attr, **kw)
+            p.start()
+            self.addCleanup(p.stop)
 
-        def fake_write(path, text, mode=0o644):
-            written[path] = text
+    def fake_write(self, path, text, mode=0o644):
+        self.written[path] = text
 
-        boom = mock.Mock(side_effect=AssertionError("install_zapret не должен вызываться"))
-        with mock.patch.dict(os.environ, {"ZAPRETHUB_NFQWS": nfqws}), \
-                mock.patch.object(config, "NFQWS", nfqws), \
-                mock.patch.object(helper_linux, "install_zapret", boom), \
-                mock.patch.object(helper_linux, "watch_stdin"), \
-                mock.patch.object(helper_linux, "event"), \
-                mock.patch.object(updates, "install_flowseal", return_value="1.9.0"), \
-                mock.patch.object(updates, "convert_builtin"), \
-                mock.patch.object(updates, "setup_lists"), \
-                mock.patch.object(updates, "install_targets"), \
-                mock.patch.object(updates, "write_file", side_effect=fake_write), \
-                mock.patch.object(config, "CUSTOM_DIR", os.path.join(self.tmp.name, "strategies")):
-            helper_linux.cmd_install(mock.Mock())
-        boom.assert_not_called()
+    def versions(self):
         import json
-        self.assertEqual(json.loads(written[config.VERSIONS_FILE])["zapret"], "nixpkgs")
+        return json.loads(self.written[config.VERSIONS_FILE])
+
+    def test_downloads_fresh_zapret_even_with_fallback(self):
+        def fake_install(work, versions):
+            versions["zapret"] = "v72.13"
+        with mock.patch.object(config, "NFQWS_FALLBACK", self.fallback), \
+                mock.patch.object(helper_linux, "install_zapret", side_effect=fake_install) as inst:
+            helper_linux.cmd_install(mock.Mock())
+        inst.assert_called_once()
+        self.assertEqual(self.versions()["zapret"], "v72.13")
+
+    def test_falls_back_to_nixpkgs_when_download_fails(self):
+        with mock.patch.object(config, "NFQWS_FALLBACK", self.fallback), \
+                mock.patch.object(helper_linux, "install_zapret", side_effect=OSError("нет сети")):
+            helper_linux.cmd_install(mock.Mock())
+            self.assertEqual(config.nfqws(), self.fallback)
+        self.assertEqual(self.versions()["zapret"], "nixpkgs")
+
+    def test_dies_without_any_nfqws(self):
+        with mock.patch.object(config, "NFQWS_FALLBACK", ""), \
+                mock.patch.object(helper_linux, "install_zapret", side_effect=OSError("нет сети")), \
+                self.assertRaises(SystemExit):
+            helper_linux.cmd_install(mock.Mock())
+
+    def test_nfqws_prefers_downloaded(self):
+        with mock.patch.object(config, "NFQWS_FALLBACK", self.fallback):
+            self.assertEqual(config.nfqws(), self.fallback)          # скачанного ещё нет
+            os.makedirs(os.path.join(config.ZAPRET_DIR, "nfq"))
+            dl = os.path.join(config.ZAPRET_DIR, "nfq", "nfqws")
+            with open(dl, "w") as f:
+                f.write("#!/bin/sh\n")
+            os.chmod(dl, 0o755)
+            self.assertEqual(config.nfqws(), dl)
+        with mock.patch.object(config, "NFQWS_FALLBACK", ""):
+            os.remove(dl)
+            self.assertEqual(config.nfqws(), dl)                     # путь по умолчанию, даже если файла нет
 
 
 class Hosts(Base):
@@ -138,16 +193,17 @@ class BackendHelperPath(unittest.TestCase):
 
 
 class ConfigEnv(unittest.TestCase):
-    def test_nfqws_and_nixos_from_env(self):
+    def test_fallback_and_nixos_from_env(self):
         import importlib
-        with mock.patch.dict(os.environ, {"ZAPRETHUB_NFQWS": "/nix/store/x/bin/nfqws", "ZAPRETHUB_NIXOS": "1"}):
+        with mock.patch.dict(os.environ, {"ZAPRETHUB_NFQWS_FALLBACK": "/nix/store/x/bin/nfqws", "ZAPRETHUB_NIXOS": "1"}):
             c = importlib.reload(config)
-            self.assertEqual(c.NFQWS, "/nix/store/x/bin/nfqws")
+            self.assertEqual(c.NFQWS_FALLBACK, "/nix/store/x/bin/nfqws")
             self.assertTrue(c.NIXOS)
-        env = {k: v for k, v in os.environ.items() if k not in ("ZAPRETHUB_NFQWS", "ZAPRETHUB_NIXOS")}
+        env = {k: v for k, v in os.environ.items() if k not in ("ZAPRETHUB_NFQWS_FALLBACK", "ZAPRETHUB_NIXOS")}
         with mock.patch.dict(os.environ, env, clear=True):
             c = importlib.reload(config)
-            self.assertTrue(c.NFQWS.endswith(os.path.join("zapret", "nfq", "nfqws")))
+            self.assertEqual(c.NFQWS_FALLBACK, "")
+            self.assertTrue(c.nfqws().endswith(os.path.join("zapret", "nfq", "nfqws")))
             self.assertFalse(c.NIXOS)
 
 

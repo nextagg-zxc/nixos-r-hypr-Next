@@ -194,7 +194,7 @@ class LinuxBackend(Backend):
 
     # ------------------------------------------------------------ status
     def is_installed(self):
-        return os.access(config.NFQWS, os.X_OK) and os.path.isdir(config.BUILTIN_DIR)
+        return os.access(config.nfqws(), os.X_OK) and os.path.isdir(config.BUILTIN_DIR)
 
     def status(self):
         st = self.state()

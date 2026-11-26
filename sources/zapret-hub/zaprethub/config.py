@@ -31,9 +31,19 @@ TARGETS_FILE = os.path.join(DATA_DIR, "targets.txt")
 RESULTS_FILE = os.path.join(DATA_DIR, "test-results.json")
 IPSET_FULL = os.path.join(LISTS_DIR, "ipset-all.full.txt")
 ZAPRET_DIR = os.path.join(DATA_DIR, "zapret")       # Linux: bol-van/zapret (nfqws)
-# NixOS: nfqws из nixpkgs (обёртка пакета задаёт путь; pkexec сбрасывает окружение, так что root
-# видит только то, что задала обёртка из хранилища Nix) — тогда zapret не скачивается.
-NFQWS = os.environ.get("ZAPRETHUB_NFQWS") or os.path.join(ZAPRET_DIR, "nfq", "nfqws")
+NFQWS = os.path.join(ZAPRET_DIR, "nfq", "nfqws")   # скачанный свежий zapret (bol-van)
+# NixOS: nfqws из nixpkgs — только запасной, если скачать/подобрать свежий не вышло (стратегии Flowseal
+# ждут свежий nfqws, а nixpkgs, особенно стабильная ветка, отстаёт). Путь задаёт обёртка пакета;
+# pkexec сбрасывает окружение, так что root видит только то, что задала обёртка из хранилища Nix.
+NFQWS_FALLBACK = os.environ.get("ZAPRETHUB_NFQWS_FALLBACK", "")
+
+
+def nfqws():
+    """Скачанный nfqws, если он есть; иначе запасной из системы; иначе путь скачанного."""
+    downloaded = os.path.join(ZAPRET_DIR, "nfq", "nfqws")
+    if os.access(downloaded, os.X_OK) or not NFQWS_FALLBACK:
+        return downloaded
+    return NFQWS_FALLBACK
 # NixOS: юнит и /etc/hosts описывает модуль. Автозапуск — файл-флаг (модуль запускает службу, если он
 # есть), блок hosts хранится в файле и возвращается модулем после пересборки системы.
 NIXOS = os.environ.get("ZAPRETHUB_NIXOS") == "1"

@@ -146,6 +146,16 @@ class Smoke(unittest.TestCase):
         self.assertIs(win.stack.currentWidget(), win.pages["home"])
         win.close()
 
+    def test_not_installed_text_mentions_zapret(self):
+        # и на NixOS программа качает свежий zapret (nfqws из nixpkgs — только запасной)
+        from unittest import mock
+        from zaprethub import config
+        for nixos in (True, False):
+            with mock.patch.object(config, "NIXOS", nixos):
+                win = self.make(installed=False)
+                self.assertIn("скачает zapret и стратегии Flowseal", win.pages["home"].sub.text())
+                win.close()
+
     def test_power_installs_then_starts(self):
         win = self.make(installed=False)
         win.pages["home"].power.click()

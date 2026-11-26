@@ -86,7 +86,7 @@ def set_autostart(on):
 
 
 def is_installed():
-    return os.access(config.NFQWS, os.X_OK) and os.path.isdir(config.BUILTIN_DIR)
+    return os.access(config.nfqws(), os.X_OK) and os.path.isdir(config.BUILTIN_DIR)
 
 
 def save_state(st):
@@ -100,7 +100,7 @@ def install_zapret(work, versions):
     with updates.http_get(config.url("zapret_api"), "application/vnd.github+json") as r:
         rel = json.load(r)
     tag = rel["tag_name"]
-    if os.access(config.NFQWS, os.X_OK) and versions.get("zapret") == tag:
+    if os.access(os.path.join(config.ZAPRET_DIR, "nfq", "nfqws"), os.X_OK) and versions.get("zapret") == tag:
         log(f"zapret {tag} уже стоит")
         return
     asset = next(x for x in rel["assets"] if re.fullmatch(r"zapret-v[\d.]+\.tar\.gz", x["name"]))
@@ -127,17 +127,15 @@ def cmd_install(a):
     work = tempfile.mkdtemp(dir=config.DATA_DIR, prefix=".dl-")
     try:
         versions = core.load_json(config.VERSIONS_FILE)
-        if os.environ.get("ZAPRETHUB_NFQWS"):
-            if not os.access(config.NFQWS, os.X_OK):
-                die(f"нет nfqws: {config.NFQWS}")
-            log("nfqws — из системы (nixpkgs), zapret не скачиваю")
-            versions["zapret"] = "nixpkgs"
-        else:
-            try:
-                install_zapret(work, versions)
-            except (OSError, ValueError, KeyError, StopIteration, urllib.error.URLError) as e:
-                if not os.access(config.NFQWS, os.X_OK):
-                    die(f"не удалось скачать zapret: {e}. Проверь интернет и попробуй ещё раз.")
+        try:
+            install_zapret(work, versions)
+        except (OSError, ValueError, KeyError, StopIteration, urllib.error.URLError) as e:
+            if not os.access(config.nfqws(), os.X_OK):
+                die(f"не удалось скачать zapret: {e}. Проверь интернет и попробуй ещё раз.")
+            if config.nfqws() == config.NFQWS_FALLBACK:
+                log(f"zapret не скачан ({e}), беру nfqws из системы (nixpkgs)")
+                versions["zapret"] = "nixpkgs"
+            else:
                 log(f"zapret не обновлён ({e}), оставляю установленный")
         if cancelled.is_set():
             die("отменено")
@@ -178,7 +176,7 @@ def current_build(name=None, game=None):
 
 
 def nfqws_argv(args):
-    return [config.NFQWS, f"--qnum={core.QNUM}", f"--dpi-desync-fwmark={core.DESYNC_MARK:#x}", "--user=nobody"] + args
+    return [config.nfqws(), f"--qnum={core.QNUM}", f"--dpi-desync-fwmark={core.DESYNC_MARK:#x}", "--user=nobody"] + args
 
 
 def fw_up(tcp, udp):
@@ -210,7 +208,7 @@ def check_current():
     args, tcp, udp = current_build()
     core.merge_ports(tcp or "1")
     core.merge_ports(udp or "1")
-    r = subprocess.run([config.NFQWS, "--dry-run"] + nfqws_argv(args)[1:], capture_output=True, text=True)
+    r = subprocess.run([config.nfqws(), "--dry-run"] + nfqws_argv(args)[1:], capture_output=True, text=True)
     if r.returncode:
         lines = (r.stdout + r.stderr).strip().splitlines()
         raise ValueError(lines[-1] if lines else "nfqws отверг параметры")
@@ -346,10 +344,16 @@ def cmd_fix(a):
     unit = CONFLICT_UNITS.get(a.id)
     if not unit:
         die("это нужно исправить вручную")
-    sh(["systemctl", "disable", "--now", unit], check=False)
+    if config.NIXOS:
+        # юниты NixOS в /etc/systemd только для чтения: disable невозможен — маскируем до перезагрузки
+        sh(["systemctl", "stop", unit], check=False)
+        sh(["systemctl", "mask", "--runtime", unit], check=False)
+    else:
+        sh(["systemctl", "disable", "--now", unit], check=False)
     if unit == "zapret-gui.service":
         sh(["nft", "delete", "table", "inet", "zapret_gui"], check=False)
-    log(f"{unit} остановлен и отключён")
+    log(f"{unit} остановлен" + (" до перезагрузки (на NixOS отключи его в конфигурации системы)" if config.NIXOS
+                                else " и отключён"))
 
 
 def cmd_uninstall(a):

@@ -57,7 +57,7 @@ stdenv.mkDerivation {
   postFixup = ''
     makeWrapper $out/lib/zapret-hub/zapret-hub-helper $out/libexec/zapret-hub-helper \
       --set ZAPRETHUB_NIXOS 1 \
-      --set ZAPRETHUB_NFQWS ${zapret}/bin/nfqws \
+      --set ZAPRETHUB_NFQWS_FALLBACK ${zapret}/bin/nfqws \
       --prefix PATH : ${helperPath}
     makeWrapper ${guiPython}/bin/python3 $out/bin/zapret-hub \
       "''${qtWrapperArgs[@]}" \
@@ -65,7 +65,7 @@ stdenv.mkDerivation {
       --set PYTHONSAFEPATH 1 \
       --set PYTHONPATH $out/lib/zapret-hub \
       --set ZAPRETHUB_NIXOS 1 \
-      --set ZAPRETHUB_NFQWS ${zapret}/bin/nfqws \
+      --set ZAPRETHUB_NFQWS_FALLBACK ${zapret}/bin/nfqws \
       --set ZAPRETHUB_HELPER $out/libexec/zapret-hub-helper \
       --add-flags "-m zaprethub"
   '';

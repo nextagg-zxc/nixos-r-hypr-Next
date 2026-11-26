@@ -2,9 +2,17 @@
 # GitHub заменяет локальное «зеркало» (ZAPRETHUB_MIRROR) с маленьким поддельным релизом Flowseal.
 { pkgs, module }:
 let
-  mirror = pkgs.runCommand "zapret-hub-test-mirror" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+  # mirror — только Flowseal (zapret «не скачался» → nfqws из nixpkgs); mirrorFull — ещё и «свежий»
+  # релиз zapret v99.1: его install_bin.sh кладёт nfq/nfqws (копия nfqws из nixpkgs).
+  mirror = mkMirror false;
+  mirrorFull = mkMirror true;
+  mkMirror = withZapret: pkgs.runCommand "zapret-hub-test-mirror" {
+    nativeBuildInputs = [ pkgs.python3 ];
+    withZapret = if withZapret then "1" else "";
+    nfqws = "${pkgs.zapret}/bin/nfqws";
+  } ''
     python3 - <<'PY'
-    import json, os, zipfile
+    import io, json, os, tarfile, zipfile
     out = os.environ["out"]
     def put(path, data):
         p = os.path.join(out, path)
@@ -27,6 +35,22 @@ let
         "assets": [{"name": top + ".zip", "browser_download_url":
                     "https://github.com/Flowseal/zapret-discord-youtube/releases/download/9.9.9/" + top + ".zip"}]}))
     put("raw/Flowseal/zapret-discord-youtube/refs/heads/main/.service/hosts", "1.2.3.4 discord.media\n")
+    if os.environ["withZapret"]:
+        ztop = "zapret-v99.1"
+        tgz = os.path.join(out, "gh/bol-van/zapret/releases/download/v99.1", ztop + ".tar.gz")
+        os.makedirs(os.path.dirname(tgz), exist_ok=True)
+        with tarfile.open(tgz, "w:gz") as t:
+            def add(name, data, mode=0o644):
+                ti = tarfile.TarInfo(f"{ztop}/{name}")
+                ti.size, ti.mode = len(data), mode
+                t.addfile(ti, io.BytesIO(data))
+            add("install_bin.sh", b"#!/bin/sh\nset -e\nmkdir -p nfq\ncp binaries/linux-x86_64/nfqws nfq/nfqws\n"
+                b"chmod 755 nfq/nfqws\n", 0o755)
+            add("binaries/linux-x86_64/nfqws", open(os.environ["nfqws"], "rb").read(), 0o755)
+        put("api/repos/bol-van/zapret/releases/latest", json.dumps({
+            "tag_name": "v99.1",
+            "assets": [{"name": ztop + ".tar.gz", "browser_download_url":
+                        "https://github.com/bol-van/zapret/releases/download/v99.1/" + ztop + ".tar.gz"}]}))
     PY
   '';
 in
@@ -45,9 +69,9 @@ pkgs.testers.runNixOSTest {
       h = "${pkg}/libexec/zapret-hub-helper"
       env = "ZAPRETHUB_MIRROR=http://127.0.0.1:8000"
 
-      def mirror():
+      def mirror(root="${mirror}"):
           machine.succeed("systemctl stop mirror.service || true")
-          machine.succeed("systemd-run --unit mirror ${pkgs.python3}/bin/python3 -m http.server -d ${mirror} 8000")
+          machine.succeed(f"systemd-run --unit mirror ${pkgs.python3}/bin/python3 -m http.server -d {root} 8000")
           machine.wait_for_open_port(8000)
 
       machine.wait_for_unit("multi-user.target")
@@ -59,18 +83,25 @@ pkgs.testers.runNixOSTest {
           assert h in wrapper and "ZAPRETHUB_HELPER" in wrapper, wrapper
           machine.succeed("test -f /run/current-system/sw/share/applications/zapret-hub.desktop")
 
-      with subtest("установка без скачивания zapret, nfqws из nixpkgs"):
+      with subtest("zapret не скачался — запасной nfqws из nixpkgs"):
           mirror()
           machine.succeed(f"{env} {h} install")
           machine.succeed("grep -q nixpkgs /opt/zapret-hub/versions.json")
           machine.succeed("test -d /opt/zapret-hub/strategies-builtin")
           machine.fail("test -e /opt/zapret-hub/zapret")
+          machine.succeed(f"{h} service start")
+          machine.succeed("pgrep -a nfqws | grep -q '/nix/store/.*-zapret-'")
+          machine.succeed(f"{h} service stop")
 
-      with subtest("служба: nft-таблица и nfqws из хранилища"):
+      with subtest("свежий zapret скачан — служба запускает его nfqws"):
+          mirror("${mirrorFull}")
+          machine.succeed(f"{env} {h} install")
+          machine.succeed("grep -q v99.1 /opt/zapret-hub/versions.json")
+          machine.succeed("test -x /opt/zapret-hub/zapret/nfq/nfqws")
           machine.succeed(f"{h} service start")
           machine.succeed("systemctl is-active zapret-hub")
           machine.succeed("nft list table inet zapret_hub")
-          machine.succeed("pgrep -a nfqws | grep -q '/nix/store/.*-zapret-'")
+          machine.succeed("pgrep -a nfqws | grep -q '/opt/zapret-hub/zapret/nfq/nfqws'")
           machine.succeed("test -e /opt/zapret-hub/autostart")
 
       with subtest("автозапуск включён — служба после перезагрузки"):
